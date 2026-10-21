@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
+  BriefcaseBusiness,
   Building2,
   ChartNoAxesCombined,
   CheckCircle2,
@@ -24,6 +25,7 @@ import {
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { cloud } from "../lib/cloud";
+import { AnnualLeadership } from "./components/annual-leadership";
 import {
   CompanySettings,
   DivisionSettings,
@@ -53,7 +55,14 @@ const money = (v: number) =>
     maximumFractionDigits: 0,
   }).format(v);
 const storageKey = "incentive-builder.workspace.v2";
-const sections = ["Overview", "Company", "Divisions", "Bonus plans", "Results"];
+const sections = [
+  "Overview",
+  "Company",
+  "Divisions",
+  "Bonus plans",
+  "Results",
+  "Annual leadership",
+];
 export default function Home() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
     [tab, setTab] = useState("Overview"),
@@ -389,6 +398,7 @@ export default function Home() {
               Users,
               Target,
               ChartNoAxesCombined,
+              BriefcaseBusiness,
             ][i];
             return (
               <button
@@ -466,7 +476,9 @@ export default function Home() {
                       ? "3. Your bonus plans"
                       : tab === "Divisions"
                         ? "2. Your divisions"
-                        : "4. Check your results"}
+                        : tab === "Annual leadership"
+                          ? "Annual director & management bonuses"
+                          : "4. Check your results"}
               </h1>
               <p>Set clear goals. Reward good work. Know what it will cost.</p>
             </div>
@@ -502,6 +514,14 @@ export default function Home() {
               </button>
             )}
           </div>
+          {tab === "Annual leadership" && (
+            <AnnualLeadership
+              key={c.id}
+              company={c}
+              onChange={updateCompany}
+              notify={notify}
+            />
+          )}
           {tab === "Overview" && <HomeGuide company={c} navigate={setTab} />}
           {tab === "Company" && (
             <>

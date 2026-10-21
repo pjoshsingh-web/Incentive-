@@ -24,6 +24,18 @@ npm run dev
 
 Validation: `npm test`, `npm run build`, `npm run typecheck`. `npm start` serves the production build on port 3000.
 
+## Annual director and senior-management calculator
+
+Use the separate **Annual leadership** section. Create a plan for each person/position and year. Set a full-year base salary and a normal bonus target between **20% and 40% of salary**. The calculator compares 20%, 30% and 40% targets with the same expected results. Actual earned bonuses may be below 20% when goals are missed.
+
+Enter annual company, division and personal goals, their expected results, and their shares of the normal bonus. Shares must total 100%. Required rules can stop the entire bonus. The example goal shares and amounts are editable examples, not compensation recommendations or last year's policy. Annual goals are entered independently and are never annualized from monthly or quarterly goals.
+
+There are **no automatic discretionary accelerators**: each scored goal is capped at its normal share. A separate collapsed panel can record an existing CEO/CFO decision, approver name, reason and multiplier. A draft multiplier does not affect earnings. Recording complete decision details applies the multiplier to the performance-earned bonus, subject to the overall bonus cap. This is a planning record, not identity verification, a role-based permission system, or an approval workflow. Real authorization would need account roles and server-enforced permissions before use as an approval system.
+
+Projected annual cash = full-year base salary + projected bonus. Optional eligibility prorates only the bonus; salary stays full-year. Personal taxes, benefits, equity and other pay are excluded. The normal bonus and final bonus are rounded to cents. The portfolio summary includes only leadership plans for the selected year, adds the company's employer cost percentage to bonuses, and excludes salaries. Each saved plan (including a copied plan) contributes once. Annual leadership costs are separate from the regular bonus-plan results and must not be added to a monthly budget without an explicit period conversion.
+
+Save named what-if estimates to preserve goal results. Saved estimates use the current salary, shares, targets and decision record; adding a goal makes older estimates incomplete until its result is supplied. Annual plans and estimates are included in local autosave, cloud workspace data and full JSON backups. **Export estimate** downloads the current annual plan and projection only. Copy/import keeps annual data independent from the original company and marks copied discretionary decisions as not recorded, so they are not silently applied to a new plan.
+
 ## Saving and backups
 
 Without cloud configuration, all companies and plans autosave to this browser's local storage. The old single business profile migrates on first use; the original entry is retained. Export a JSON backup before clearing browser data. Import adds independent company copies and does not overwrite existing companies. Invalid financial drafts remain editable after refresh but cannot be saved to cloud until fixed. Browser storage is not shared across devices.

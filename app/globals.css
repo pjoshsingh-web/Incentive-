@@ -2312,3 +2312,406 @@ td input {
     margin-top: 26px;
   }
 }
+/* Separate annual leadership calculator */
+.annual-intro {
+  margin-top: 20px;
+}
+.annual-empty {
+  padding: 55px 30px;
+  text-align: center;
+  margin: 25px 0;
+  color: #4e7d61;
+}
+.annual-empty > svg {
+  margin: 0 auto 20px;
+}
+.annual-empty h2 {
+  font-size: 23px;
+  line-height: 1.5;
+}
+.annual-empty p {
+  max-width: 500px;
+  margin: 15px auto 25px;
+  line-height: 1.8;
+}
+.annual-roster {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 25px 0;
+}
+.annual-roster > button {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 15px 20px;
+  text-align: left;
+  min-width: 175px;
+}
+.annual-roster > button.selected {
+  border-color: #7cae92;
+  background: #ecf5ef;
+}
+.annual-roster strong {
+  display: block;
+  font-size: 13px;
+}
+.annual-roster span {
+  display: block;
+  font-size: 11px;
+  color: #839688;
+  margin-top: 7px;
+}
+.annual-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  font-size: 12px;
+  color: #8a9a8e;
+  flex-wrap: wrap;
+}
+.annual-toolbar > div {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.annual-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 305px;
+  gap: 24px;
+  align-items: start;
+}
+.annual-layout > div {
+  min-width: 0;
+}
+.annual-layout .form-grid {
+  gap: 20px;
+}
+.annual-layout .simple-editor .panel-heading h2 {
+  font-size: 18px;
+}
+.annual-layout .form-grid input {
+  min-width: 0;
+}
+.annual-target-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 22px;
+  background: #eef6ee;
+  color: #517e5d;
+  font-size: 12px;
+}
+.annual-target-strip strong {
+  font-size: 22px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.annual-settings {
+  margin: 22px;
+}
+.annual-settings .form-grid {
+  padding: 5px 0;
+}
+.annual-layout .simple-metric-fields {
+  grid-template-columns: 1fr 1fr;
+}
+.annual-layout .metric-editor .metric-fields {
+  grid-template-columns: 1fr 1fr;
+}
+.annual-add-goal {
+  padding: 20px 22px;
+}
+.annual-projection {
+  padding-top: 20px;
+  position: sticky;
+  top: 20px;
+  display: grid;
+  gap: 20px;
+}
+.annual-pay-card {
+  padding: 24px;
+  background: linear-gradient(140deg, #f0f7f0, #fff);
+}
+.annual-pay-card .eyebrow {
+  font-size: 8px;
+  letter-spacing: 1px;
+  line-height: 1.8;
+}
+.annual-pay-card h2 {
+  font-size: 17px;
+  line-height: 1.6;
+}
+.annual-total {
+  padding: 25px 0;
+  border-bottom: 1px solid #dfe9df;
+  margin-bottom: 15px;
+}
+.annual-total span {
+  display: block;
+  font-size: 12px;
+  color: #789782;
+}
+.annual-total strong {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 37px;
+  font-weight: 400;
+  letter-spacing: -1px;
+  color: #326b4c;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.pay-line {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  font-size: 11px;
+  color: #7b8e80;
+}
+.pay-line strong {
+  font-size: 14px;
+  font-weight: 500;
+  color: #355b42;
+  white-space: nowrap;
+}
+.annual-pay-card .plain-note {
+  font-size: 10px;
+  margin-top: 18px;
+  background: #eaf3e9;
+}
+.annual-pay-card .validation {
+  margin: 20px 0;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.annual-scenarios,
+.annual-estimate-save {
+  padding: 22px;
+}
+.annual-scenarios h3,
+.annual-estimate-save h3 {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.annual-scenarios > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: #849889;
+  line-height: 1.7;
+}
+.annual-scenarios strong {
+  font-weight: 500;
+  font-size: 14px;
+  color: #3f664b;
+  white-space: nowrap;
+}
+.annual-scenarios small {
+  display: block;
+  font-size: 9px;
+  color: #99a89b;
+  line-height: 1.7;
+  margin-top: 12px;
+}
+.annual-estimate-save p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.annual-estimate-save label {
+  font-size: 11px;
+  color: #7d9483;
+  display: block;
+  margin: 18px 0;
+}
+.annual-estimate-save input {
+  display: block;
+  padding: 12px 10px;
+  width: 100%;
+  border: 1px solid #dce6db;
+  border-radius: 5px;
+  margin-top: 9px;
+  font-size: 12px;
+  background: white;
+}
+.annual-estimate-save .button {
+  width: 100%;
+}
+.annual-comparison {
+  margin: 0 0 30px;
+}
+.annual-comparison .panel-heading p,
+.annual-year-summary .panel-heading p {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.annual-no-estimates {
+  padding: 10px 24px 25px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.estimate-actions {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+.annual-comparison table {
+  min-width: 650px;
+}
+.annual-year-summary {
+  margin-bottom: 30px;
+}
+.annual-year-summary .scenario-results strong {
+  font-size: 20px;
+}
+.annual-year-summary .rule-note {
+  font-size: 11px;
+  line-height: 1.8;
+}
+@media (max-width: 1200px) {
+  .annual-layout {
+    grid-template-columns: 1fr;
+  }
+  .annual-projection {
+    position: static;
+    padding: 0 0 25px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .annual-pay-card {
+    grid-row: span 2;
+  }
+  .annual-year-summary .scenario-results {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 650px) {
+  .annual-projection {
+    grid-template-columns: 1fr;
+  }
+  .annual-pay-card {
+    grid-row: auto;
+  }
+  .annual-layout .simple-metric-fields,
+  .annual-layout .metric-editor .metric-fields {
+    grid-template-columns: 1fr;
+  }
+  .annual-layout .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .annual-target-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .annual-settings {
+    margin: 18px 15px;
+  }
+  .annual-layout .annual-settings .form-grid {
+    padding: 0;
+  }
+  .annual-roster {
+    gap: 8px;
+  }
+  .annual-roster > button {
+    min-width: 130px;
+    flex: 1;
+    padding: 12px;
+  }
+  .annual-toolbar > div .button {
+    font-size: 10px;
+    padding: 10px;
+  }
+  .annual-year-summary .scenario-results {
+    grid-template-columns: 1fr;
+  }
+  .annual-year-summary .panel-heading {
+    padding-bottom: 10px;
+  }
+  .annual-intro button {
+    margin-left: 0;
+  }
+  .annual-layout {
+    gap: 0;
+  }
+  .annual-layout .metric-editor-list {
+    padding: 0 15px;
+  }
+}
+.leadership-decision {
+  padding: 22px;
+  margin: 0 0 25px;
+  background: #fafbf7;
+}
+.leadership-decision > summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4f7156;
+}
+.leadership-decision > p {
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 18px 0;
+}
+.leadership-decision .decision-boundary {
+  font-size: 11px;
+  color: #9a8a6e;
+  background: #f8f2e7;
+  padding: 12px;
+  border-radius: 6px;
+}
+.leadership-decision .form-grid {
+  padding: 15px 0 20px;
+}
+.leadership-decision label {
+  font-size: 12px;
+}
+.leadership-decision[open] .editor-footer {
+  padding: 20px 0 0;
+}
+.annual-range-row > span > small,
+.annual-range-row > strong > small {
+  display: block;
+  font-size: 9px;
+  line-height: 1.6;
+  color: #91a291;
+  margin-top: 5px;
+  font-weight: 400;
+}
+.annual-scenarios .range-help {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.annual-projection .pay-line {
+  align-items: flex-start;
+}
+.annual-projection .pay-line span {
+  line-height: 1.7;
+}
+.annual-projection .pay-line strong {
+  padding-top: 2px;
+}
+@media (max-width: 650px) {
+  .leadership-decision {
+    padding: 18px;
+  }
+  .leadership-decision .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .leadership-decision .editor-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .annual-roster strong {
+    font-size: 12px;
+  }
+}

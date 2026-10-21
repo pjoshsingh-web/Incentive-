@@ -1,3 +1,4 @@
+import { validLeadershipPlan, type LeadershipPlan } from "./leadership";
 import {
   companyScorecard,
   divisionScorecard,
@@ -49,6 +50,7 @@ export type Department = {
   actual: number;
 };
 export type Company = Profile & {
+  leadershipPlans?: LeadershipPlan[];
   scorecard?: Scorecard;
   id: string;
   period: "Monthly" | "Quarterly" | "Annual";
@@ -488,6 +490,13 @@ export function parseWorkspace(raw: string): Workspace {
       throw Error("Invalid company profile.");
     if (c.scorecard !== undefined && !validScorecard(c.scorecard))
       throw Error("Invalid company measures.");
+    if (
+      c.leadershipPlans !== undefined &&
+      (!Array.isArray(c.leadershipPlans) ||
+        !unique(c.leadershipPlans) ||
+        !c.leadershipPlans.every(validLeadershipPlan))
+    )
+      throw Error("Invalid annual leadership plans.");
     for (const d of c.departments)
       if (
         (d.scorecard !== undefined && !validScorecard(d.scorecard)) ||
@@ -551,6 +560,13 @@ export function cloneCompany(c: Company): Company {
     ...c,
     id: id(),
     company: c.company + " (copy)",
+    leadershipPlans: c.leadershipPlans
+      ? structuredClone(c.leadershipPlans).map((p) => ({
+          ...p,
+          id: id(),
+          adjustment: { ...p.adjustment, recorded: false },
+        }))
+      : undefined,
     scorecard: c.scorecard ? structuredClone(c.scorecard) : undefined,
     departments: c.departments.map((d) => ({
       ...d,
