@@ -1,3 +1,9 @@
+import {
+  companyScorecard,
+  divisionScorecard,
+  validScorecard,
+  type Scorecard,
+} from "./business";
 import type { Profile } from "./finance";
 export type Metric = {
   id: string;
@@ -11,7 +17,16 @@ export type Metric = {
   cap: number;
   accelerator: number;
   gate: boolean;
-  source: "manual" | "department-opex";
+  source:
+    | "manual"
+    | "department-opex"
+    | "company-revenue"
+    | "company-margin"
+    | "division-revenue"
+    | "division-margin"
+    | "company-other"
+    | "division-other";
+  sourceId?: string;
 };
 export type Plan = {
   id: string;
@@ -27,12 +42,14 @@ export type Plan = {
   bindingError?: string;
 };
 export type Department = {
+  scorecard?: Scorecard;
   id: string;
   name: string;
   budget: number;
   actual: number;
 };
 export type Company = Profile & {
+  scorecard?: Scorecard;
   id: string;
   period: "Monthly" | "Quarterly" | "Annual";
   overhead: number;
@@ -211,10 +228,7 @@ export function template(
   if (scope === "department") metrics[0].source = "department-opex";
   return {
     id: id(),
-    name:
-      scope === "department"
-        ? department + " team incentive"
-        : role + " incentive",
+    name: scope === "department" ? department + " team bonus" : role + " bonus",
     department,
     role,
     scope,
@@ -237,8 +251,27 @@ export function newCompany(): Company {
     budget: 30000,
     period: "Monthly",
     overhead: 10,
+    scorecard: {
+      revenueTarget: 1100000,
+      revenueActual: 1000000,
+      marginTarget: 25,
+      marginActual: 24,
+      other: [],
+    },
     departments: [
-      { id: id(), name: "Fleet operations", budget: 650000, actual: 630000 },
+      {
+        id: id(),
+        name: "Fleet operations",
+        budget: 650000,
+        actual: 630000,
+        scorecard: {
+          revenueTarget: 900000,
+          revenueActual: 850000,
+          marginTarget: 25,
+          marginActual: 23,
+          other: [],
+        },
+      },
       { id: id(), name: "Maintenance", budget: 90000, actual: 95000 },
       { id: id(), name: "Safety & compliance", budget: 30000, actual: 28000 },
     ],
@@ -259,22 +292,24 @@ export function planErrors(p: Plan): string[] {
   const errors: string[] = [];
   if (p.bindingError) errors.push(p.bindingError);
   if (!p.name.trim() || !p.role.trim() || !p.department.trim())
-    errors.push("Plan name, job and department are required.");
+    errors.push("Add a plan name, job title, and division or team.");
   if (!Number.isInteger(p.participants) || p.participants < 1)
-    errors.push("Participants must be a positive whole number.");
+    errors.push("Enter at least one person, using a whole number.");
   if (
     !Number.isFinite(p.incentive) ||
     p.incentive < 0 ||
     !Number.isFinite(p.cap) ||
     p.cap < 0
   )
-    errors.push("Incentive and payout cap must be nonnegative.");
+    errors.push("Bonus amounts and payment limits cannot be negative.");
   const weighted = p.metrics.filter((m) => !m.gate);
   if (
     !weighted.length ||
     Math.abs(weighted.reduce((s, m) => s + m.weight, 0) - 100) > 0.001
   )
-    errors.push("Scored metric weights must total 100%.");
+    errors.push(
+      "Bonus shares must add up to 100%. Change the shares or use “Split bonus equally”.",
+    );
   for (const m of p.metrics) {
     if (
       !m.name.trim() ||
@@ -290,7 +325,7 @@ export function planErrors(p: Plan): string[] {
       m.accelerator < 0
     )
       errors.push(
-        `${m.name || "Metric"}: enter a positive scored target (gates may use zero), nonnegative values, and a threshold from 0 to 100.`,
+        `${m.name || "Metric"}: use a goal above zero (required rules may use zero), numbers of zero or more, and a starting level from 0 to 100%.`,
       );
   }
   return errors;
@@ -343,23 +378,58 @@ export function calculatePlan(p: Plan) {
   return { errors, pool, maximum, payout, gatesPassed };
 }
 export function resolvedPlan(c: Company, p: Plan): Plan {
+  const errors: string[] = [];
+  const metrics = p.metrics.map((m) => {
+    if (m.source === "manual") return m;
+    const division = c.departments.filter((d) => d.name === p.department);
+    if (
+      (m.source.startsWith("division-") || m.source === "department-opex") &&
+      division.length !== 1
+    ) {
+      errors.push("Choose a division with saved numbers for this plan.");
+      return m;
+    }
+    if (m.source === "department-opex")
+      return { ...m, actual: division[0].actual };
+    const card = m.source.startsWith("company-")
+      ? companyScorecard(c)
+      : divisionScorecard(division[0]);
+    if (m.source.endsWith("-revenue"))
+      return {
+        ...m,
+        target: card.revenueTarget,
+        actual: card.revenueActual,
+        unit: "$",
+        direction: "higher" as const,
+      };
+    if (m.source.endsWith("-margin"))
+      return {
+        ...m,
+        target: card.marginTarget,
+        actual: card.marginActual,
+        unit: "%",
+        direction: "higher" as const,
+      };
+    const measure = card.other.find((v) => v.id === m.sourceId);
+    if (!measure) {
+      errors.push(
+        "A linked measure was removed. Choose another measure or enter numbers yourself.",
+      );
+      return m;
+    }
+    return {
+      ...m,
+      name: measure.name,
+      target: measure.target,
+      actual: measure.actual,
+      unit: measure.unit,
+      direction: measure.direction,
+    };
+  });
   return {
     ...p,
-    bindingError:
-      p.metrics.some((m) => m.source === "department-opex") &&
-      c.departments.filter((d) => d.name === p.department).length !== 1
-        ? "Linked expense metrics require one matching department expense row."
-        : undefined,
-    metrics: p.metrics.map((m) =>
-      m.source === "department-opex"
-        ? {
-            ...m,
-            actual:
-              c.departments.find((d) => d.name === p.department)?.actual ??
-              m.actual,
-          }
-        : m,
-    ),
+    metrics,
+    bindingError: errors.length ? [...new Set(errors)].join(" ") : undefined,
   };
 }
 export function companyTotals(c: Company) {
@@ -416,8 +486,11 @@ export function parseWorkspace(raw: string): Workspace {
       !unique(c.plans)
     )
       throw Error("Invalid company profile.");
+    if (c.scorecard !== undefined && !validScorecard(c.scorecard))
+      throw Error("Invalid company measures.");
     for (const d of c.departments)
       if (
+        (d.scorecard !== undefined && !validScorecard(d.scorecard)) ||
         !text(d.id) ||
         typeof d.name !== "string" ||
         !number(d.budget) ||
@@ -454,7 +527,17 @@ export function parseWorkspace(raw: string): Workspace {
           typeof m.unit !== "string" ||
           typeof m.gate !== "boolean" ||
           !["higher", "lower"].includes(m.direction) ||
-          !["manual", "department-opex"].includes(m.source)
+          ![
+            "manual",
+            "department-opex",
+            "company-revenue",
+            "company-margin",
+            "division-revenue",
+            "division-margin",
+            "company-other",
+            "division-other",
+          ].includes(m.source) ||
+          (m.sourceId !== undefined && typeof m.sourceId !== "string")
         )
           throw Error("Invalid metric.");
     }
@@ -468,7 +551,12 @@ export function cloneCompany(c: Company): Company {
     ...c,
     id: id(),
     company: c.company + " (copy)",
-    departments: c.departments.map((d) => ({ ...d, id: id() })),
+    scorecard: c.scorecard ? structuredClone(c.scorecard) : undefined,
+    departments: c.departments.map((d) => ({
+      ...d,
+      id: id(),
+      scorecard: d.scorecard ? structuredClone(d.scorecard) : undefined,
+    })),
     plans: c.plans.map((p) => ({
       ...p,
       id: id(),

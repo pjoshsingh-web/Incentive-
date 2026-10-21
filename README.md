@@ -2,6 +2,17 @@
 
 A Next.js, TypeScript and Tailwind CSS general incentive workspace. Manage multiple company profiles, individual job plans, department pools, custom metrics, and department operating expense scenarios. Includes trucking templates across fleet operations, maintenance, safety, sales, finance, recruiting, leadership and warehouse roles. Any job title and metric can be customized.
 
+## Simple four-step workflow
+
+1. **Company**: choose a bonus period, budget, revenue goal/result and gross margin goal/result. Add optional measures in “What else matters?”. Gross margin is explained beside the fields.
+2. **Divisions**: set separate revenue, margin and other measures for each division or team. Support teams may leave revenue at zero. Running cost budgets/results are optional and appear behind a disclosure.
+3. **Bonus plans**: choose who gets the bonus, the normal bonus amount and what it rewards. Each measure can use company numbers, the plan's division numbers, or manual job results. “More rules” holds payment limits, starting levels, extra above-goal rewards and required rules. Adding/removing a measure splits scored shares equally; shares can then be edited. Required rules have no share.
+4. **Results**: review company/division results, total bonus cost and each plan's payment. Gross profit after loaded bonuses excludes other operating costs. Detailed division running costs are available on request.
+
+All new scorecard amounts use the selected bonus period. Company and division revenue are entered independently and never added together automatically. Margin is gross margin (0–100%). Custom measures support any unit and higher- or lower-is-better goals. To affect a payout, a measure must be selected as a source in a bonus plan; simply tracking it does not change pay.
+
+Existing workspaces and old backups remain readable. Old company annual revenue and growth fields supply period-adjusted starting revenue goals/results when no scorecard is saved; old divisions start with zero revenue/margin until entered. Existing plans and their payout rules are retained. Copy/import deep-copies scorecards and keeps internal measure links intact. Deleting a linked measure blocks its bonus calculation until the source is fixed.
+
 ## Run locally
 
 Node.js 24 and npm 11 are supported:
@@ -35,7 +46,7 @@ Live cloud authentication, database access and isolation must be checked against
 
 ## Financial model
 
-Company revenue is annual. All incentive pools, metric targets and expense scenarios use the selected monthly, quarterly or annual planning period. Changing the period label does not convert any values. All monetary values are USD.
+Company and division scorecard revenue, incentive pools, measure targets and expense scenarios use the selected monthly, quarterly or annual bonus period. Legacy annual company revenue remains available only as a migration fallback. Changing the period label does not convert any values. All monetary values are USD.
 
 Individual plans multiply target incentive per person by covered recipients. Department plans use one total pool, independent of recipient count. Plans are additive; the same employee in several plans can earn several awards. Covered recipients are not deduplicated employee records.
 
@@ -43,6 +54,6 @@ For scored metrics, higher-is-better attainment = actual / target; lower-is-bett
 
 Mandatory gates have no weight and block the entire plan if actual misses the target. Gates may have a zero target, e.g. zero preventable incidents. Do not incentivize unsafe driving or noncompliance. Templates are starting points requiring business and legal review.
 
-Metric actuals can be manually entered or explicitly linked to the matching department's operating expense actual. Linked targets remain editable. Department names should be unique. For accurate reporting, add expense rows for all plan departments.
+Metric goals and results can be linked to company or division revenue, gross margin, or a custom measure. Links are resolved directly from saved scorecards on every calculation, without copying stale values. Operating expense links continue to bind only the division's expense actual, leaving that metric's target editable. Missing divisions/measures block payouts. Division names should be unique. Use positive targets for scored measures; zero goals are allowed for required rules.
 
 Department operating expenses exclude incentive payments. Employer burden applies to incentive payouts once. Net savings = expense budget − expense actual − loaded incentive cost. It is not company net profit. Invalid enabled plans are identified and their payouts blocked; totals are marked incomplete. Maximum exposure assumes all scored metrics reach their caps and all gates pass. Calculations use independent real metric actuals; no AI or external API determines payouts.
