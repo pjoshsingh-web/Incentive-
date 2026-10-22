@@ -1,4 +1,5 @@
 "use client";
+import { formatMoney as money } from "../../lib/currency";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -24,12 +25,7 @@ import {
   divisionScorecard,
   scorecardSummary,
 } from "../../lib/business";
-const money = (n: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
+
 export function Field({
   label,
   value,

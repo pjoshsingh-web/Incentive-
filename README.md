@@ -58,7 +58,7 @@ Live cloud authentication, database access and isolation must be checked against
 
 ## Financial model
 
-Company and division scorecard revenue, incentive pools, measure targets and expense scenarios use the selected monthly, quarterly or annual bonus period. Legacy annual company revenue remains available only as a migration fallback. Changing the period label does not convert any values. All monetary values are USD.
+Company and division scorecard revenue, incentive pools, measure targets and expense scenarios use the selected monthly, quarterly or annual bonus period. Legacy annual company revenue remains available only as a migration fallback. Changing the period label does not convert any values. All monetary values are Canadian dollars (CAD). Currency formatting uses the Canadian locale. Existing numeric amounts are treated as CAD; no exchange-rate conversion is performed. Backup and annual-estimate exports identify CAD.
 
 Individual plans multiply target incentive per person by covered recipients. Department plans use one total pool, independent of recipient count. Plans are additive; the same employee in several plans can earn several awards. Covered recipients are not deduplicated employee records.
 

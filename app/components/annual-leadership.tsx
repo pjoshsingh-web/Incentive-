@@ -1,4 +1,5 @@
 "use client";
+import { currency, formatMoney as money } from "../../lib/currency";
 import { useState } from "react";
 import {
   ArrowRight,
@@ -21,12 +22,7 @@ import {
   splitAnnualShares,
 } from "../../lib/leadership";
 import { Field } from "./simple-setup";
-const money = (v: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(v);
+
 export function AnnualLeadership({
   company: c,
   onChange,
@@ -70,6 +66,7 @@ export function AnnualLeadership({
         JSON.stringify(
           {
             company: c.company,
+            currency,
             annualPlan: p,
             projection: result,
             assumptions:
@@ -201,8 +198,8 @@ export function AnnualLeadership({
                     </span>
                     <h2>What could they earn this year?</h2>
                     <p>
-                      All salary and bonus amounts are in USD, before personal
-                      taxes.
+                      All salary and bonus amounts are in Canadian dollars
+                      (CAD), before personal taxes.
                     </p>
                   </div>
                 </div>

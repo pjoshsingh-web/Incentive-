@@ -1,4 +1,5 @@
 "use client";
+import { currency, formatMoney as money } from "../lib/currency";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
@@ -48,12 +49,7 @@ import {
   sampleWorkspace,
   template,
 } from "../lib/workspace";
-const money = (v: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(v);
+
 const storageKey = "incentive-builder.workspace.v2";
 const sections = [
   "Overview",
@@ -180,9 +176,12 @@ export default function Home() {
   };
   const download = () => {
     if (!workspace) return;
-    const blob = new Blob([JSON.stringify(workspace, null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob(
+      [JSON.stringify({ ...workspace, currency }, null, 2)],
+      {
+        type: "application/json",
+      },
+    );
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -1124,7 +1123,7 @@ export default function Home() {
             </>
           )}
           <footer>
-            © 2026 Incentive Builder{" "}
+            © 2026 Incentive Builder · All amounts CAD{" "}
             <span>Transparent rules. Measurable outcomes.</span>
           </footer>
         </div>
