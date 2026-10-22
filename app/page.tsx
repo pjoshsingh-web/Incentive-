@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { cloud } from "../lib/cloud";
+import { useCloudAutosave, clearCloudDraft } from "./hooks/use-cloud-autosave";
 import { QLineBrand } from "./components/qline-brand";
 import { AnnualLeadership } from "./components/annual-leadership";
 import {
@@ -70,12 +71,11 @@ export default function Home() {
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [authMode, setAuthMode] = useState<"login" | "signup">("login"),
-    [busy, setBusy] = useState(false),
-    [revision, setRevision] = useState<number | null>(null),
-    [cloudSaved, setCloudSaved] = useState("");
+    [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const currentRef = useRef(workspace);
-  currentRef.current = workspace;
+  const cloudSync = useCloudAutosave(user?.id, workspace, setWorkspace);
+  const loadCloud = () => cloudSync.load();
+  const saveCloud = () => cloudSync.save();
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
@@ -133,7 +133,6 @@ export default function Home() {
     if (!workspace) return;
     try {
       localStorage.setItem(storageKey, JSON.stringify(workspace));
-      setCloudSaved("");
     } catch {
       setStorageError(
         "Browser storage is blocked or full. Export a backup to keep your work.",
@@ -145,10 +144,6 @@ export default function Home() {
     void cloud.auth.getUser().then(({ data }) => setUser(data.user));
     const { data } = cloud.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT") {
-        setRevision(null);
-        setCloudSaved("");
-      }
     });
     return () => data.subscription.unsubscribe();
   }, []);
@@ -221,91 +216,10 @@ export default function Home() {
       setPassword("");
       if (result.data.session) {
         setAccount(false);
-        notify("Signed in. Load your cloud workspace before saving changes.");
+        notify("Signed in. Connecting your cloud workspace for autosave.");
       } else notify("Check your email to confirm your account, then sign in.");
     } catch (e) {
       notify(e instanceof Error ? e.message : "Unable to sign in.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  const loadCloud = async () => {
-    if (!cloud || !user) return;
-    setBusy(true);
-    try {
-      const { data, error } = await cloud
-        .from("incentive_workspaces")
-        .select("data,revision")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) {
-        setRevision(0);
-        notify(
-          "No cloud workspace yet. Save your current workspace to create one.",
-        );
-        return;
-      }
-      const loaded = parseWorkspace(JSON.stringify(data.data));
-      if (
-        !confirm(
-          "Load your cloud workspace? This replaces the current browser workspace. Export a backup first if you need to retain local changes.",
-        )
-      )
-        return;
-      setWorkspace(loaded);
-      setRevision(data.revision);
-      setCloudSaved("Cloud workspace loaded");
-      notify("Cloud workspace loaded.");
-    } catch (e) {
-      notify(
-        e instanceof Error ? e.message : "Unable to load cloud workspace.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-  const saveCloud = async () => {
-    if (!cloud || !user || !workspace) return;
-    if (revision === null) {
-      notify("Load cloud first to check for an existing workspace.");
-      return;
-    }
-    try {
-      parseWorkspace(JSON.stringify(workspace));
-      if (
-        workspace.companies.some(
-          (company) =>
-            !company.company.trim() ||
-            company.plans.some(
-              (p) => calculatePlan(resolvedPlan(company, p)).errors.length,
-            ),
-        )
-      )
-        throw Error("Invalid rules");
-    } catch {
-      notify("Resolve invalid company or plan values before saving to cloud.");
-      return;
-    }
-    setBusy(true);
-    const snapshot = workspace;
-    try {
-      const { data, error } = await cloud.rpc("save_incentive_workspace", {
-        p_data: snapshot,
-        p_expected_revision: revision,
-      });
-      if (error) throw error;
-      setRevision(data);
-      setCloudSaved(
-        currentRef.current === snapshot
-          ? "Saved to cloud"
-          : "Cloud saved; newer local changes pending",
-      );
-      notify("Workspace saved to your private account.");
-    } catch (e) {
-      notify(
-        e instanceof Error ? e.message : "Unable to save cloud workspace.",
-      );
     } finally {
       setBusy(false);
     }
@@ -438,9 +352,12 @@ export default function Home() {
             <strong>{tab}</strong>
           </div>
           <div className="top-actions">
-            <span className="sample-badge">
+            <span
+              role="status"
+              className={"sample-badge sync-" + cloudSync.state}
+            >
               <span />
-              {cloudSaved || "Saved in this browser"}
+              {user ? cloudSync.message : "Saved in this browser"}
             </span>
             <button
               className="button secondary"
@@ -453,10 +370,15 @@ export default function Home() {
             <button
               className="button primary"
               onClick={() => (user ? void saveCloud() : setAccount(true))}
-              disabled={busy}
+              disabled={
+                busy ||
+                cloudSync.saving ||
+                (user && ["choose", "conflict"].includes(cloudSync.state)) ||
+                false
+              }
             >
               <Cloud size={16} />
-              {user ? "Save to cloud" : "Connect account"}
+              {user ? "Save now" : "Connect account"}
             </button>
           </div>
         </header>
@@ -494,15 +416,54 @@ export default function Home() {
               {storageError}
             </div>
           )}
+          {user && cloudSync.error && (
+            <div className="cloud-save-alert" role="alert">
+              <p>{cloudSync.error}</p>
+              <p>
+                Your browser draft is still here. Export a backup before
+                replacing it with cloud data.
+              </p>
+              <div className="profile-actions">
+                <button className="button secondary" onClick={download}>
+                  Export backup
+                </button>
+                {cloudSync.state === "error" && (
+                  <button
+                    className="button secondary"
+                    onClick={cloudSync.retry}
+                  >
+                    Retry connection
+                  </button>
+                )}
+                <button
+                  disabled={cloudSync.saving}
+                  className="button secondary"
+                  onClick={() => void loadCloud()}
+                >
+                  Load cloud workspace
+                </button>
+              </div>
+            </div>
+          )}
+          {cloudSync.draftWarning && (
+            <div className="validation bad" role="alert">
+              {cloudSync.draftWarning}
+            </div>
+          )}
           <div className="workspace-status">
             <span>
               <CheckCircle2 size={15} />
               {storageError
                 ? "Local saving needs attention"
-                : "Changes are saved automatically in this browser"}
+                : user
+                  ? cloudSync.message
+                  : "Changes are saved automatically in this browser"}
             </span>
             {user ? (
-              <button disabled={busy} onClick={() => void loadCloud()}>
+              <button
+                disabled={busy || cloudSync.saving}
+                onClick={() => void loadCloud()}
+              >
                 Load cloud workspace
               </button>
             ) : (
@@ -1179,31 +1140,36 @@ export default function Home() {
             ) : user ? (
               <>
                 <p>
-                  Signed in as <strong>{user.email}</strong>. Load the latest
-                  cloud workspace before editing on a new device, then save your
-                  changes to cloud.
+                  Signed in as <strong>{user.email}</strong>. Changes save to
+                  cloud automatically after you pause typing. If this browser
+                  has a different workspace, load your account’s workspace once
+                  to connect it safely.
                 </p>
                 <div className="cloud-actions">
                   <button
-                    disabled={busy}
+                    disabled={busy || cloudSync.saving}
                     className="button secondary"
                     onClick={() => void loadCloud()}
                   >
                     Load cloud workspace
                   </button>
                   <button
-                    disabled={busy || revision === null}
+                    disabled={
+                      busy ||
+                      cloudSync.saving ||
+                      ["choose", "conflict"].includes(cloudSync.state)
+                    }
                     className="button primary"
                     onClick={() => void saveCloud()}
                   >
                     <Save size={15} />
-                    Save to cloud
+                    Save now
                   </button>
                 </div>
                 <div className="editor-footer">
                   <span>Local drafts remain on this browser.</span>
                   <button
-                    disabled={busy}
+                    disabled={busy || cloudSync.saving}
                     className="button secondary"
                     onClick={async () => {
                       if (
@@ -1218,6 +1184,7 @@ export default function Home() {
                         notify(error.message);
                         return;
                       }
+                      clearCloudDraft();
                       localStorage.removeItem(storageKey);
                       localStorage.removeItem(
                         "incentive-builder.business-profile.v1",

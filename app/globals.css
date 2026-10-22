@@ -2715,3 +2715,28 @@ td input {
     font-size: 12px;
   }
 }
+.cloud-save-alert {
+  margin: 15px 0 22px;
+  border: 1px solid #e7cdb3;
+  background: #fff8ef;
+  color: #806145;
+  padding: 18px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.cloud-save-alert p {
+  color: inherit;
+  margin: 0 0 12px;
+}
+.sample-badge.sync-pending > span,
+.sample-badge.sync-saving > span {
+  background: #c49038;
+}
+.sample-badge.sync-error > span,
+.sample-badge.sync-conflict > span {
+  background: #b64536;
+}
+.sample-badge.sync-checking > span {
+  background: #8a8a8a;
+}

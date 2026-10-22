@@ -38,7 +38,7 @@ Save named what-if estimates to preserve goal results. Saved estimates use the c
 
 ## Saving and backups
 
-Without cloud configuration, all companies and plans autosave to this browser's local storage. The old single business profile migrates on first use; the original entry is retained. Export a JSON backup before clearing browser data. Import adds independent company copies and does not overwrite existing companies. Invalid financial drafts remain editable after refresh but cannot be saved to cloud until fixed. Browser storage is not shared across devices.
+Without cloud configuration, all companies and plans autosave to this browser's local storage. The old single business profile migrates on first use; the original entry is retained. Export a JSON backup before clearing browser data. Import adds independent company copies and does not overwrite existing companies. Incomplete financial drafts can be saved locally and to cloud; payout calculations stay blocked until their rules are fixed. Browser storage is not shared across devices.
 
 ## Private accounts and shared storage across devices
 
@@ -50,11 +50,11 @@ Cloud storage uses Supabase Auth and Postgres. Each authenticated user has one p
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: your project's public publishable key. Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` is also supported.
 3. In Supabase Authentication settings enable email/password, configure your deployed site URL, email confirmation and allowed redirect URLs. Supabase email delivery limits apply; configure email delivery for production as needed.
 4. Rebuild/redeploy after setting public variables. Never put a service-role key in the browser or in Git.
-5. Use **Connect account** to sign up and confirm your email, then sign in. Choose **Load cloud workspace** first. If no workspace exists, save the browser workspace to create it. Otherwise loading replaces the browser workspace after confirmation: export local changes first.
-6. Edit and choose **Save to cloud**. Browser drafts autosave locally, but cloud saving is explicit. On another device, sign in and load your workspace. Saving checks the loaded revision; a stale device cannot silently overwrite a newer saved revision. Export a backup before resolving a conflict by loading the latest workspace.
+5. Use **Connect account** to sign up and confirm your email, then sign in. The app checks your cloud workspace automatically. A new account starts cloud autosave. If your browser contains different, unassociated data, export a backup if needed and choose **Load cloud workspace** once before autosave starts. Loading replaces browser data after confirmation.
+6. Edit normally: cloud autosave runs about 1.2 seconds after editing pauses. **Save now** is optional. Writes are serialized and use revision checks, so edits made during a save queue behind its confirmed revision. The header shows waiting, saving, saved, error or conflict states. A browser draft and baseline checkpoint support refresh recovery. Clean drafts can load newer cloud data automatically; conflicting edits are kept locally and never overwrite another device. Export a backup before loading the latest cloud data to resolve a conflict. Network failures pause autosave until retry/reconnection; an online or focus event rechecks the remote revision before resuming. No unchanged retry loop is used. Do not clear browser storage before unsaved drafts have reached cloud or been exported.
 7. Sign out using **Sign out & clear local data** on shared computers. Financial drafts otherwise remain on that browser. Private accounts need a secure device/browser; local drafts are not encrypted.
 
-Live cloud authentication, database access and isolation must be checked against a configured Supabase project before production use. Without project configuration the app shows setup guidance and continues in local mode. No cloud account or remote persistence is claimed until connected and tested.
+Autosave has unit tests for debouncing, serialized revisions, failures, stale updates, account changes and JSONB key order. Browser integration is tested with controlled Supabase responses; live authentication, database access and isolation must still be checked against the configured Supabase project. No SQL schema update is required for autosave. Without project configuration the app shows setup guidance and continues in local mode. No cloud account or remote persistence is claimed until connected and tested.
 
 ## Financial model
 
