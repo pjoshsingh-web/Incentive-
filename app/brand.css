@@ -1,0 +1,394 @@
+/* Q-Line: red actions, charcoal text, and neutral surfaces. Positive results stay green. */
+:root {
+  --ink: #333536;
+  --muted: #767a7d;
+  --teal: #c91b10;
+  --line: #e6e7e8;
+  --bg: #f6f7f8;
+  --qline-red: #d3190c;
+  --qline-dark: #3e3e3d;
+}
+.qline-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 230px;
+  max-width: 100%;
+  margin: 0 auto 20px;
+}
+.qline-brand-compact {
+  width: 100%;
+  margin: 0;
+  gap: 10px;
+}
+.qline-artwork {
+  width: 100%;
+  overflow: hidden;
+}
+.qline-artwork img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.qline-product {
+  color: var(--qline-dark);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+.qline-text-brand {
+  color: var(--qline-red);
+  width: 100%;
+  text-align: center;
+}
+.qline-text-brand strong {
+  display: block;
+  font-size: 39px;
+  font-weight: 900;
+  font-style: italic;
+  font-family: Georgia, serif;
+  letter-spacing: -2px;
+  line-height: 1.05;
+}
+.qline-text-brand small {
+  display: block;
+  color: var(--qline-dark);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  margin-top: 7px;
+  padding-left: 8px;
+}
+.qline-brand-compact .qline-text-brand strong {
+  font-size: 36px;
+}
+.qline-brand-compact .qline-product {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+}
+.sidebar .brand {
+  display: block;
+  letter-spacing: normal;
+}
+.account-modal > .qline-brand {
+  margin: 0 0 25px;
+  align-items: flex-start;
+}
+.account-modal > .qline-brand .qline-text-brand {
+  text-align: left;
+}
+.account-modal > .qline-brand .qline-text-brand small {
+  padding-left: 9px;
+}
+.account-modal > .qline-brand .qline-artwork {
+  width: 230px;
+}
+.loading-state {
+  color: var(--qline-dark);
+}
+.primary,
+.topbar .top-actions .primary {
+  background: var(--qline-red);
+  color: #fff;
+  box-shadow: 0 2px 4px #3e3e3d15;
+}
+.primary:hover {
+  background: #b7180d;
+}
+.sidebar .nav-item.active {
+  color: #b71e12;
+  background: #faecea;
+}
+.sidebar .nav-item:hover {
+  background: #f5f1f0;
+}
+.brand-icon {
+  background: var(--qline-red);
+}
+.nav-count {
+  background: #f1d9d6;
+  color: #a92014;
+}
+.eyebrow {
+  color: #9e514b;
+}
+.sidebar .company-switch select {
+  background: #f6f6f6;
+  color: #454545;
+}
+.sidebar .advisor-card {
+  border-color: #e6e3e1;
+  background: linear-gradient(130deg, #faf8f7, #f4f1ef);
+}
+.advisor-card button,
+.advisor-icon {
+  color: #a93229;
+}
+.workspace-status {
+  background: #f3f4f4;
+  border-color: #e1e4e3;
+  color: #737b76;
+}
+.workspace-status button {
+  color: #a52e25;
+}
+.welcome-card {
+  background: linear-gradient(120deg, #fbefec, #f7f7f5);
+  border-color: #ecdeda;
+}
+.welcome-symbol {
+  color: #bf5147;
+  border-color: #e4c9c4;
+  background: #ffffffa0;
+}
+.guided-step > svg,
+.guided-step > span:last-child {
+  color: #b3362b;
+}
+.step-bubble {
+  background: #f9ece9;
+  color: #ad2d22;
+}
+.guided-step:hover {
+  border-color: #d99a92;
+  box-shadow: 0 4px 20px #8b221510;
+}
+.setup-banner {
+  background: #f6f1ee;
+  border-color: #e9dfda;
+}
+.setup-icon {
+  color: #a34d43;
+  border-color: #e8dcd7;
+}
+.setup-banner button {
+  color: #a83226;
+}
+.setup-banner p {
+  color: #88817c;
+}
+.period-note {
+  background: #f5efec;
+  color: #8b594d;
+}
+.number-pair {
+  background: #fcfbfa;
+  border-color: #e6e2df;
+}
+.number-pair h3 {
+  color: var(--qline-dark);
+}
+.simple-editor .form-grid label {
+  color: #62686b;
+}
+.simple-editor .form-grid input,
+.simple-editor .form-grid select {
+  color: #343839;
+  border-color: #dfe1e2;
+}
+.plain-note {
+  background: #f2f4f2;
+  color: #657567;
+}
+.advanced-settings {
+  background: #f9f9f8;
+  border-color: #e5e5e2;
+  color: #666c66;
+}
+.advanced-settings input,
+.advanced-settings select {
+  color: #383f3a;
+  border-color: #dddfdc;
+}
+.division-tabs .selected,
+.annual-roster > button.selected {
+  background: #fbefec;
+  border-color: #d89c93;
+  color: #9e2d21;
+}
+.metric-editor {
+  background: #fcfbfa;
+  border-color: #e5e1de;
+}
+.metric-editor-heading > label,
+.metric-fields label {
+  color: #787b78;
+}
+.metric-editor-heading input,
+.metric-fields input,
+.metric-fields select {
+  color: #393f3b;
+  border-color: #dedfdc;
+}
+.measure-source-label {
+  color: #6f726c;
+}
+.measure-source-label select {
+  color: #373d37;
+  border-color: #dce0da;
+}
+.linked-note {
+  background: #f3f4ef;
+  color: #6d7b62;
+}
+.share-explainer button {
+  color: #a82e23;
+}
+.plan-picker > button.selected {
+  background: #fbefed;
+  border-left-color: var(--qline-red);
+}
+.plan-picker strong {
+  color: #414541;
+}
+.plan-picker small {
+  color: #858d84;
+}
+.role-icon {
+  background: #f8efec;
+  color: #a33a2c;
+}
+.path-icon {
+  background: #f6f0ed;
+  color: #985746;
+}
+.path-link,
+.panel-footer button {
+  color: #a82e23;
+}
+.company-result-row {
+  background: #f5f3ef;
+}
+.plain-result strong {
+  color: var(--qline-dark);
+}
+.plain-result {
+  color: #73786f;
+}
+.annual-pay-card {
+  background: linear-gradient(140deg, #faf0ed, #fff);
+}
+.annual-total {
+  border-color: #eadfdb;
+}
+.annual-total strong {
+  color: var(--qline-dark);
+}
+.annual-total span {
+  color: #94736c;
+}
+.annual-target-strip {
+  background: #f8eeea;
+  color: #98604f;
+}
+.annual-target-strip strong {
+  color: #a62d20;
+}
+.pay-line strong,
+.annual-scenarios strong {
+  color: var(--qline-dark);
+}
+.annual-pay-card .plain-note {
+  background: #f4f3ef;
+  color: #7c7c6d;
+}
+.annual-roster span {
+  color: #8e8179;
+}
+.annual-range-row > strong > small {
+  color: #8c8b83;
+}
+.leadership-decision {
+  background: #faf9f5;
+}
+.leadership-decision > summary {
+  color: #6e6653;
+}
+.toast {
+  background: var(--qline-dark);
+}
+.onboarding-ready {
+  color: #a8382b;
+}
+.modal-backdrop {
+  background: #25252566;
+}
+.form-grid input:focus,
+.form-grid select:focus,
+.metric-fields input:focus,
+.metric-fields select:focus,
+input:focus,
+select:focus {
+  outline: 2px solid #dc9a92;
+  outline-offset: 1px;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #da9b93;
+  outline-offset: 3px;
+}
+.plan-toggle input,
+.gate-control input,
+.advanced-settings input[type="checkbox"] {
+  accent-color: var(--qline-red);
+}
+.simulation-controls input {
+  accent-color: var(--qline-red);
+}
+.loading-state .qline-brand {
+  width: 280px;
+}
+@media (max-width: 1150px) {
+  .qline-brand-compact .qline-text-brand strong {
+    font-size: 32px;
+  }
+  .qline-brand-compact .qline-product {
+    font-size: 8px;
+  }
+}
+@media (max-width: 850px) {
+  .sidebar .brand {
+    display: block;
+  }
+  .sidebar .qline-brand-compact {
+    gap: 0;
+  }
+  .sidebar .qline-product,
+  .sidebar .qline-text-brand strong span,
+  .sidebar .qline-text-brand small {
+    display: none;
+  }
+  .sidebar .qline-text-brand strong {
+    font-size: 41px;
+    line-height: 1;
+    letter-spacing: -3px;
+    padding-right: 4px;
+  }
+  .sidebar .qline-artwork {
+    width: 49px;
+    height: 43px;
+    align-self: center;
+  }
+  .sidebar .qline-artwork img {
+    height: 43px;
+    width: 161px;
+    max-width: none;
+  }
+  .account-modal .qline-product {
+    font-size: 10px;
+  }
+}
+@media (max-width: 560px) {
+  .account-modal > .qline-brand {
+    width: 200px;
+  }
+  .qline-text-brand strong {
+    font-size: 34px;
+  }
+  footer {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

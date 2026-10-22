@@ -11,7 +11,6 @@ import {
   Cloud,
   Copy,
   Download,
-  Layers3,
   LayoutDashboard,
   LogIn,
   Plus,
@@ -26,6 +25,7 @@ import {
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import { cloud } from "../lib/cloud";
+import { QLineBrand } from "./components/qline-brand";
 import { AnnualLeadership } from "./components/annual-leadership";
 import {
   CompanySettings,
@@ -335,8 +335,8 @@ export default function Home() {
   if (!workspace || !c || !totals)
     return (
       <div className="loading-state">
-        <Layers3 size={36} />
-        <h1>Incentive Builder</h1>
+        <QLineBrand />
+        <h1>Q-Line Incentive Builder</h1>
         <p>{storageError || "Opening your workspace…"}</p>
         {storageError && (
           <button
@@ -362,14 +362,12 @@ export default function Home() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="/">
-          <span className="brand-icon">
-            <Layers3 size={23} />
-          </span>
-          <span>
-            incentive<span className="brand-light">builder</span>
-            <small>PERFORMANCE, ALIGNED.</small>
-          </span>
+        <a
+          className="brand"
+          href="/"
+          aria-label="Q-Line Incentive Builder home"
+        >
+          <QLineBrand compact />
         </a>
         <div className="company-switch">
           <label>ACTIVE COMPANY</label>
@@ -1123,7 +1121,7 @@ export default function Home() {
             </>
           )}
           <footer>
-            © 2026 Incentive Builder · All amounts CAD{" "}
+            © 2026 Q-Line Trucking · Incentive Builder · All amounts CAD{" "}
             <span>Transparent rules. Measurable outcomes.</span>
           </footer>
         </div>
@@ -1149,7 +1147,8 @@ export default function Home() {
             >
               <X size={19} />
             </button>
-            <span className="eyebrow">PRIVATE WORKSPACE</span>
+            <QLineBrand />
+            <span className="eyebrow">YOUR Q-LINE WORKSPACE</span>
             <h2>Keep your work together.</h2>
             {!cloud ? (
               <>
