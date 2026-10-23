@@ -35,6 +35,8 @@ import {
   BusinessResults,
 } from "./components/simple-setup";
 import { PlanMeasures } from "./components/plan-measures";
+import { CompositePlanEditor } from "./components/composite-plan";
+import { bulkTemplate, newPart } from "../lib/composite";
 import {
   Company,
   Plan,
@@ -235,6 +237,21 @@ export default function Home() {
       p.metrics[0].target = Math.max(1, c.departments[0]?.budget || 100000);
     updateCompany({ plans: [...c.plans, p] });
     setSelected(p.id);
+    setTab("Bonus plans");
+  };
+  const addComposite = (custom = false) => {
+    if (!c) return;
+    const fresh = bulkTemplate(c.departments[0]?.name || "Bulk");
+    if (custom) {
+      fresh.name = "Custom multi-part plan";
+      fresh.composite = {
+        ...fresh.composite!,
+        purpose: "Reward the results that matter for this group.",
+        parts: [newPart()],
+      };
+    }
+    updateCompany({ plans: [...c.plans, fresh] });
+    setSelected(fresh.id);
     setTab("Bonus plans");
   };
   const addCompany = () => {
@@ -592,8 +609,12 @@ export default function Home() {
                   >
                     <strong>{p.name}</strong>
                     <small>
-                      {p.scope === "individual" ? p.role : "Team bonus"} ·{" "}
-                      {p.enabled ? "Enabled" : "Excluded"}
+                      {p.composite
+                        ? "Multi-part plan"
+                        : p.scope === "individual"
+                          ? p.role
+                          : "Team bonus"}{" "}
+                      · {p.enabled ? "Enabled" : "Excluded"}
                     </small>
                   </button>
                 ))}
@@ -612,16 +633,57 @@ export default function Home() {
                     <Plus size={14} />
                     Team plan
                   </button>
+                  <span className="plan-kind-label">
+                    TABLE & MULTI-PART PLANS
+                  </span>
+                  <button
+                    className="button secondary"
+                    onClick={() => addComposite(false)}
+                  >
+                    <Plus size={14} />
+                    Bulk template
+                  </button>
+                  <button
+                    className="button secondary"
+                    onClick={() => addComposite(true)}
+                  >
+                    <Plus size={14} />
+                    Custom multi-part
+                  </button>
                 </div>
               </section>
-              {activePlan ? (
+              {activePlan?.composite ? (
+                <CompositePlanEditor
+                  company={c}
+                  plan={activePlan}
+                  onChange={updatePlan}
+                  notify={notify}
+                  onNext={() => setTab("Results")}
+                  onDelete={() => {
+                    if (confirm("Delete " + activePlan.name + "?"))
+                      updateCompany({
+                        plans: c.plans.filter((v) => v.id !== activePlan.id),
+                      });
+                  }}
+                  onCopy={() => {
+                    const copy = {
+                      ...structuredClone(activePlan),
+                      id: id(),
+                      name: activePlan.name + " (copy)",
+                    };
+                    updateCompany({ plans: [...c.plans, copy] });
+                    setSelected(copy.id);
+                  }}
+                />
+              ) : activePlan ? (
                 <section className="panel editor">
                   <div className="panel-heading">
                     <div>
                       <h2>Who is this bonus for?</h2>
                       <p>
                         Choose a job or team, then choose what earns a bonus.
-                        All amounts use the period in step 1.
+                        Simple plans use the period in step 1. Multi-part plans
+                        show each part’s own payment schedule.
                       </p>
                     </div>
                     <button
@@ -856,6 +918,21 @@ export default function Home() {
                   Change bonus measures <ArrowRight size={16} />
                 </button>
               </div>
+              {c.plans.some((p) => p.composite) && (
+                <div className="plain-note composite-results-note">
+                  Multi-part plans are shown as {c.period.toLowerCase()} budget
+                  equivalents. Their annual totals are divided by{" "}
+                  {c.period === "Monthly"
+                    ? 12
+                    : c.period === "Quarterly"
+                      ? 4
+                      : 1}
+                  . Weekly payments and annual bonuses keep their own timing;
+                  these equivalents are not cash-payment schedules. Open the
+                  multi-part plan to see the full annual and per-payment
+                  breakdown.
+                </div>
+              )}
               <BusinessResults
                 company={c}
                 bonusCost={totals.loaded}
@@ -1044,7 +1121,11 @@ export default function Home() {
                         return (
                           <tr key={p.id}>
                             <td>{p.name}</td>
-                            <td>{p.scope}</td>
+                            <td>
+                              {p.composite
+                                ? "Multi-part (budget equivalent)"
+                                : p.scope}
+                            </td>
                             <td>{money(r.pool)}</td>
                             <td>
                               {r.errors.length ? "Invalid" : money(r.payout)}

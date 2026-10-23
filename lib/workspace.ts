@@ -1,3 +1,8 @@
+import {
+  compositeResult,
+  validComposite,
+  type CompositePlan,
+} from "./composite";
 import { validLeadershipPlan, type LeadershipPlan } from "./leadership";
 import {
   companyScorecard,
@@ -30,6 +35,8 @@ export type Metric = {
   sourceId?: string;
 };
 export type Plan = {
+  composite?: CompositePlan;
+  reportingPeriod?: "Monthly" | "Quarterly" | "Annual";
   id: string;
   name: string;
   department: string;
@@ -291,6 +298,7 @@ export function sampleWorkspace(): Workspace {
   return { version: 2, activeId: c.id, companies: [c] };
 }
 export function planErrors(p: Plan): string[] {
+  if (p.composite) return compositeResult(p).errors;
   const errors: string[] = [];
   if (p.bindingError) errors.push(p.bindingError);
   if (!p.name.trim() || !p.role.trim() || !p.department.trim())
@@ -348,6 +356,7 @@ export function metricFactor(m: Metric): number {
   );
 }
 export function calculatePlan(p: Plan) {
+  if (p.composite) return compositeResult(p);
   const errors = planErrors(p);
   const pool = p.incentive * (p.scope === "individual" ? p.participants : 1);
   const gatesPassed = p.metrics
@@ -380,6 +389,7 @@ export function calculatePlan(p: Plan) {
   return { errors, pool, maximum, payout, gatesPassed };
 }
 export function resolvedPlan(c: Company, p: Plan): Plan {
+  if (p.composite) return { ...p, reportingPeriod: c.period };
   const errors: string[] = [];
   const metrics = p.metrics.map((m) => {
     if (m.source === "manual") return m;
@@ -519,6 +529,13 @@ export function parseWorkspace(raw: string): Workspace {
         !["participants", "incentive", "cap"].every((k) => number(p[k]))
       )
         throw Error("Invalid incentive plan.");
+      if (p.composite !== undefined && !validComposite(p.composite))
+        throw Error("Invalid multi-part plan.");
+      if (
+        p.reportingPeriod !== undefined &&
+        !["Monthly", "Quarterly", "Annual"].includes(p.reportingPeriod)
+      )
+        throw Error("Invalid plan period.");
       for (const m of p.metrics)
         if (
           !text(m.id) ||
@@ -577,6 +594,7 @@ export function cloneCompany(c: Company): Company {
       ...p,
       id: id(),
       metrics: p.metrics.map((m) => ({ ...m, id: id() })),
+      composite: p.composite ? structuredClone(p.composite) : undefined,
     })),
   };
 }

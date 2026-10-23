@@ -24,6 +24,24 @@ npm run dev
 
 Validation: `npm test`, `npm run build`, `npm run typecheck`. `npm start` serves the production build on port 3000.
 
+## Multi-part and table-based plans
+
+In **Bonus plans**, choose **Bulk template** for the supplied Bulk example or **Custom multi-part** to start from one editable part. Existing job/team plans keep their weighted-goal calculations.
+
+The Bulk example has a weekly RWT table (4600→40, 4800→60, 5000→100, 5200→120, 5400→140, 5600→160, 5800→180, 6000+→200 CAD) and an annual profitability table (100%→2500, 105%→4000, 110%→6000, 120%+→8000 CAD). Below the first level pays zero. At 5000 weekly RWT for 52 payments and 100% profitability, the target is 5200 + 2500 = **7700 CAD per eligible recipient**. The table-based maximum is 10400 + 8000 = **18400 CAD**, assuming eligibility and conditions can pass.
+
+Choose **each employee**, **each truck**, or **one shared team payout**. The recipient count applies to each part unless that part is explicitly one shared pool. Shared team plans are never multiplied by the count. Whole-plan annual limits apply after all parts and recipients are added.
+
+Each part can be weekly, monthly, quarterly or annual, with its own count of payments. It can use a payment table, a per-unit/savings rate, or a goal-based payment. Table rules use the qualifying step by default; straight-line interpolation is opt-in. Higher-is-better tables select the largest level not above the result; lower-is-better tables select the smallest level not below it. Rate rules pay the positive difference from their starting point times the rate. Goal rules use result/goal or goal/result, a starting threshold and an optional above-goal accelerator. Rate/goal rules require a finite payment cap so their ceiling is known. Per-payment amounts are rounded to cents before adding periods.
+
+By default annual projections repeat the entered result across all selected payments. For variable results, use **More rules → Use a separate result for every payment period** and apply exactly the selected count of results, one per line. These are evaluated independently; a payment on an average result is not substituted for the sum of the payments. Unsaved text in that editor is not applied until its explicit Apply button is clicked.
+
+Eligibility checks stop the whole plan. Required numeric goals and positive-payment prerequisites can stop individual parts. Circular/missing prerequisites and other invalid rules block calculations, while structurally valid drafts still autosave. Required goals and inputs are manual planning values for the part's own period; they do not silently link to monthly company metrics. The ceiling is an upper bound assuming required conditions can pass; it is not a guarantee of jointly reachable goals.
+
+**Company Results use budget equivalents**: annual composite cost is divided by 12 for Monthly, 4 for Quarterly, or 1 for Annual. This conversion happens after recipient counts and whole-plan caps. It is a budget allowance/accrual, not a weekly or annual cash-payment schedule. Annual leadership plans remain separate. Employer burden is applied once by the existing company totals.
+
+Open **Plan handout** for a branded, employee-facing layout with purpose, eligibility, component tables, annual examples and total incentive opportunity. **Print / save PDF** prints the handout, hiding editor controls and navigation. More than two parts may naturally span pages. No external image generation, API, or payroll service is involved. Plans, caps, histories and internal prerequisites are included in backups, company copies and cloud autosave.
+
 ## Annual director and senior-management calculator
 
 Use the separate **Annual leadership** section. Create a plan for each person/position and year. Set a full-year base salary and a normal bonus target between **20% and 40% of salary**. The calculator compares 20%, 30% and 40% targets with the same expected results. Actual earned bonuses may be below 20% when goals are missed.
