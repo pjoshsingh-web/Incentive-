@@ -54,7 +54,11 @@ export function AnnualLeadership({
     onChange({ leadershipPlans: [...plans, fresh] });
     setSelected(fresh.id);
   };
-  const yearPlans = p ? plans.filter((v) => v.year === p.year) : [];
+  const yearPlans = p
+    ? plans.filter(
+        (v) => v.year === p.year && v.includeInCompanyTotal !== false,
+      )
+    : [];
   const yearResults = yearPlans.map((v) => annualResult(v));
   const incomplete = yearResults.some((r) => r.errors.length);
   const yearBonus = yearResults.reduce((s, r) => s + r.bonus, 0);
@@ -158,6 +162,7 @@ export function AnnualLeadership({
                     id: id(),
                     name: p.name + " (copy)",
                     adjustment: { ...p.adjustment, recorded: false },
+                    includeInCompanyTotal: false,
                   };
                   onChange({ leadershipPlans: [...plans, copy] });
                   setSelected(copy.id);
@@ -265,6 +270,22 @@ export function AnnualLeadership({
                     onChange={(bonusPercent) => update({ ...p, bonusPercent })}
                     help="Choose 20% to 40%. For example, 30% of a $150,000 salary is a $45,000 normal bonus."
                   />
+                </div>
+                <div className="driver-checks">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={p.includeInCompanyTotal !== false}
+                      onChange={(e) =>
+                        update({
+                          ...p,
+                          includeInCompanyTotal: e.target.checked,
+                        })
+                      }
+                    />
+                    Include this leadership plan in the company total for{" "}
+                    {p.year}
+                  </label>
                 </div>
                 <div className="annual-target-strip">
                   <span>Normal annual bonus at full eligibility</span>
@@ -875,7 +896,8 @@ export function AnnualLeadership({
                 <p>
                   {yearPlans.length} saved leadership{" "}
                   {yearPlans.length === 1 ? "plan" : "plans"} for this year.
-                  Separate from regular bonus plans.
+                  Shown separately here and included once in Company total when
+                  checked.
                 </p>
               </div>
             </div>

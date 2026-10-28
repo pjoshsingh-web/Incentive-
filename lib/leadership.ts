@@ -8,6 +8,7 @@ export type SavedEstimate = {
   results: Record<string, number>;
 };
 export type LeadershipPlan = {
+  includeInCompanyTotal?: boolean;
   id: string;
   name: string;
   role: string;
@@ -200,6 +201,8 @@ export function validLeadershipPlan(value: unknown): value is LeadershipPlan {
     typeof v === "number" && Number.isFinite(v) && v >= 0;
   const text = (v: unknown) => typeof v === "string";
   return (
+    (p.includeInCompanyTotal === undefined ||
+      typeof p.includeInCompanyTotal === "boolean") &&
     text(p.id) &&
     text(p.name) &&
     text(p.role) &&

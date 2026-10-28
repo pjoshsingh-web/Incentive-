@@ -1,3 +1,10 @@
+import {
+  poolFunding,
+  policyErrors,
+  policyPayment,
+  validPolicy,
+  type PartPolicy,
+} from "./comparison";
 import type { Plan } from "./workspace";
 export type PayoutTier = { id: string; at: number; payout: number };
 export type PartGate = {
@@ -8,6 +15,9 @@ export type PartGate = {
   comparison: "at-least" | "at-most";
 };
 export type PayoutPart = {
+  policy?: PartPolicy;
+  allowUncapped?: boolean;
+  displayAsPercent?: boolean;
   id: string;
   name: string;
   measure: string;
@@ -200,11 +210,12 @@ export function compositeErrors(p: Plan): string[] {
       errors.push(
         label + ": use a goal above zero and a starting level from 0 to 100%.",
       );
-    if (part.method !== "tiers" && part.cap === null)
+    if (part.method !== "tiers" && part.cap === null && !part.allowUncapped)
       errors.push(
         label +
           ": set a payment cap for rate or goal rules so maximum exposure is known.",
       );
+    errors.push(...policyErrors(part));
     if (
       part.gates.some(
         (g) =>
@@ -274,7 +285,9 @@ export function tablePayout(
 export function partPayment(part: PayoutPart, actual: number) {
   let amount = 0,
     tier: string | null = null;
-  if (part.method === "tiers") {
+  if (part.policy) {
+    amount = policyPayment(part, actual);
+  } else if (part.method === "tiers") {
     const match = tablePayout(part, actual);
     amount = match.amount;
     tier = match.tier;
@@ -305,6 +318,44 @@ export function partPayment(part: PayoutPart, actual: number) {
   }
   return { amount: cents(Math.min(part.cap ?? Infinity, amount)), tier };
 }
+export function annualPartPayment(part: PayoutPart, values: number[]) {
+  const amounts = values.map((v) => partPayment(part, v).amount);
+  if (part.policy?.kind === "kar") {
+    const policy = part.policy;
+    return values.reduce(
+      (sum, value, i) =>
+        sum +
+        partPayment(
+          {
+            ...part,
+            policy: {
+              ...policy,
+              businessAgeMonths: policy.businessAgeMonths + i,
+            },
+          },
+          value,
+        ).amount,
+      0,
+    );
+  }
+  if (part.policy?.kind === "quarterly-weekly") {
+    let at = 0;
+    return part.policy.quarterWeeks.reduce((sum, weeks) => {
+      const subtotal = amounts.slice(at, at + weeks).reduce((s, v) => s + v, 0);
+      at += weeks;
+      return (
+        sum +
+        Math.min(
+          subtotal,
+          part.policy!.kind === "quarterly-weekly"
+            ? part.policy!.quarterCap
+            : 0,
+        )
+      );
+    }, 0);
+  }
+  return amounts.reduce((s, v) => s + v, 0);
+}
 export function compositeResult(p: Plan) {
   const config = p.composite!;
   const errors = compositeErrors(p);
@@ -326,16 +377,41 @@ export function compositeResult(p: Plan) {
         );
       const multiplier = part.basis === "shared" ? 1 : count;
       const preview = partPayment(part, part.actual);
-      const annual = part.entries
-        ? part.entries.reduce((s, v) => s + partPayment(part, v).amount, 0)
-        : preview.amount * part.periods;
+      const annual = annualPartPayment(
+        part,
+        part.entries ?? Array(part.periods).fill(part.actual),
+      );
       const maxPer =
         part.method === "tiers"
           ? Math.min(
               part.cap ?? Infinity,
               Math.max(0, ...part.tiers.map((t) => t.payout)),
             )
-          : part.cap!;
+          : (part.cap ?? Infinity);
+      const trackerMax =
+        part.policy?.kind === "pool" && part.policy.role === "tracker"
+          ? Math.min(
+              part.cap ?? Infinity,
+              ((part.policy.pool
+                ? poolFunding({
+                    ...part.policy.pool,
+                    quarterlyProfit: part.actual,
+                  })
+                : 0) *
+                part.policy.maxShare) /
+                100,
+            )
+          : null;
+      const targetPart =
+        part.policy?.kind === "pool" && part.policy.role === "tracker"
+          ? {
+              ...part,
+              policy: {
+                ...part.policy,
+                kpis: part.policy.kpis.map((k) => ({ ...k, actual: k.target })),
+              },
+            }
+          : part;
       const result = {
         id: part.id,
         perPeriod: preview.amount,
@@ -349,7 +425,9 @@ export function compositeResult(p: Plan) {
             (ref) =>
               compute(config.parts.find((v) => v.id === ref)!).maximum > 0,
           )
-            ? maxPer * part.periods * multiplier
+            ? (part.policy?.kind === "quarterly-weekly"
+                ? annualPartPayment(part, Array(part.periods).fill(part.target))
+                : (trackerMax ?? maxPer) * part.periods) * multiplier
             : 0,
         ),
         target: cents(
@@ -357,7 +435,10 @@ export function compositeResult(p: Plan) {
             (ref) =>
               compute(config.parts.find((v) => v.id === ref)!).target > 0,
           )
-            ? partPayment(part, part.target).amount * part.periods * multiplier
+            ? annualPartPayment(
+                targetPart,
+                Array(part.periods).fill(part.target),
+              ) * multiplier
             : 0,
         ),
         conditionsPassed,
@@ -426,6 +507,11 @@ export function validComposite(value: unknown): value is CompositePlan {
     unique(c.parts) &&
     c.parts.every(
       (p) =>
+        (p.policy === undefined || validPolicy(p.policy)) &&
+        (p.displayAsPercent === undefined ||
+          typeof p.displayAsPercent === "boolean") &&
+        (p.allowUncapped === undefined ||
+          typeof p.allowUncapped === "boolean") &&
         text(p.name) &&
         text(p.measure) &&
         text(p.unit) &&

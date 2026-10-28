@@ -33,6 +33,7 @@ export function Field({
   min = 0,
   max,
   help,
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -40,12 +41,14 @@ export function Field({
   min?: number;
   max?: number;
   help?: string;
+  disabled?: boolean;
 }) {
   return (
     <label>
       {label}
       <input
         type="number"
+        disabled={disabled}
         min={min}
         max={max}
         step="any"

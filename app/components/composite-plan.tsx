@@ -8,7 +8,7 @@ import {
   Printer,
   Trash2,
 } from "lucide-react";
-import { Company, Plan, id } from "../../lib/workspace";
+import { Company, Plan, id, resolvedPlan } from "../../lib/workspace";
 import {
   CompositePlan,
   PayoutPart,
@@ -18,6 +18,7 @@ import {
 import { formatMoney as money } from "../../lib/currency";
 import { brand } from "../../lib/brand";
 import { Field } from "./simple-setup";
+import { PolicyPartEditor, PolicyHandout } from "./comparison-templates";
 const frequencies: PayoutPart["frequency"][] = [
   "Weekly",
   "Monthly",
@@ -29,6 +30,7 @@ export function CompositePlanEditor({
   company: c,
   plan: p,
   onChange,
+  onCompanyChange,
   onDelete,
   onNext,
   onCopy,
@@ -37,6 +39,7 @@ export function CompositePlanEditor({
   company: Company;
   plan: Plan;
   onChange: (p: Plan) => void;
+  onCompanyChange: (v: Partial<Company>) => void;
   onDelete: () => void;
   onNext: () => void;
   onCopy: () => void;
@@ -47,7 +50,8 @@ export function CompositePlanEditor({
     [selected, setSelected] = useState(""),
     [history, setHistory] = useState("");
   const part = config.parts.find((v) => v.id === selected) || config.parts[0];
-  const result = compositeResult({ ...p, reportingPeriod: c.period });
+  const resolved = resolvedPlan(c, { ...p, enabled: true });
+  const result = compositeResult(resolved);
   useEffect(() => {
     setHistory(part?.entries?.join("\n") ?? "");
   }, [part?.id, part?.entries]);
@@ -114,7 +118,7 @@ export function CompositePlanEditor({
         </button>
       </div>
       {mode === "handout" ? (
-        <PlanHandout plan={p} />
+        <PlanHandout plan={resolved} included={p.enabled} />
       ) : (
         <div className="composite-body">
           <div className="form-grid">
@@ -221,7 +225,11 @@ export function CompositePlanEditor({
               </strong>
             </div>
             <div>
-              <span>Annual payout ceiling*</span>
+              <span>
+                {config.parts.some((part) => part.policy?.kind === "pool")
+                  ? "Annual ceiling at entered GP*"
+                  : "Annual payout ceiling*"}
+              </span>
               <strong>
                 {result.errors.length
                   ? "Fix rules"
@@ -317,6 +325,10 @@ export function CompositePlanEditor({
                   How often is it paid?
                   <select
                     aria-label="Part payment frequency"
+                    disabled={
+                      part.policy?.kind === "pool" ||
+                      part.policy?.kind === "quarterly-weekly"
+                    }
                     value={part.frequency}
                     onChange={(e) => {
                       const frequency = e.target
@@ -335,6 +347,7 @@ export function CompositePlanEditor({
                 <Field
                   label="Number of payments in this year"
                   value={part.periods}
+                  disabled={part.policy?.kind === "quarterly-weekly"}
                   max={
                     part.frequency === "Weekly"
                       ? 53
@@ -348,14 +361,20 @@ export function CompositePlanEditor({
                   How is this part worked out?
                   <select
                     aria-label="Part calculation method"
-                    value={part.method}
+                    value={part.policy ? "policy" : part.method}
                     onChange={(e) =>
                       updatePart({
+                        policy: undefined,
                         method: e.target.value as PayoutPart["method"],
                         cap: part.cap ?? 1000,
                       })
                     }
                   >
+                    {part.policy && (
+                      <option value="policy" disabled>
+                        Comparison chart rule
+                      </option>
+                    )}
                     <option value="tiers">Payment table</option>
                     <option value="rate">Rate per unit / savings</option>
                     <option value="goal">Goal-based payment</option>
@@ -363,12 +382,24 @@ export function CompositePlanEditor({
                 </label>
                 <Field
                   label={`Goal (${part.unit})`}
-                  value={part.target}
+                  value={
+                    part.policy?.kind === "pool"
+                      ? resolved.composite!.parts.find((v) => v.id === part.id)!
+                          .target
+                      : part.target
+                  }
+                  disabled={part.policy?.kind === "pool"}
                   onChange={(target) => updatePart({ target })}
                 />
                 <Field
                   label={`Try a result (${part.unit})`}
-                  value={part.actual}
+                  value={
+                    part.policy?.kind === "pool"
+                      ? resolved.composite!.parts.find((v) => v.id === part.id)!
+                          .actual
+                      : part.actual
+                  }
+                  disabled={part.policy?.kind === "pool"}
                   onChange={(actual) => updatePart({ actual })}
                 />
               </div>
@@ -378,7 +409,14 @@ export function CompositePlanEditor({
                 it. Enter RWT as revenue per truck per week, not total company
                 revenue.
               </p>
-              {part.method === "tiers" ? (
+              {part.policy ? (
+                <PolicyPartEditor
+                  company={c}
+                  part={part}
+                  onPart={updatePart}
+                  onCompany={onCompanyChange}
+                />
+              ) : part.method === "tiers" ? (
                 <div className="composite-tiers">
                   <div className="simple-section-heading">
                     <div>
@@ -525,9 +563,17 @@ export function CompositePlanEditor({
                     onChange={(startAt) => updatePart({ startAt })}
                   />
                   <Field
-                    label={`CAD paid for each ${part.unit} above / below the starting point`}
-                    value={part.rate}
-                    onChange={(rate) => updatePart({ rate })}
+                    label={
+                      part.displayAsPercent
+                        ? "Commission rate (%)"
+                        : `CAD paid for each ${part.unit} above / below the starting point`
+                    }
+                    value={part.displayAsPercent ? part.rate * 100 : part.rate}
+                    onChange={(rate) =>
+                      updatePart({
+                        rate: part.displayAsPercent ? rate / 100 : rate,
+                      })
+                    }
                   />
                   <p>
                     Payment = the qualifying difference × the rate, limited by
@@ -566,6 +612,7 @@ export function CompositePlanEditor({
                     A good result is
                     <select
                       value={part.direction}
+                      disabled={!!part.policy}
                       onChange={(e) =>
                         updatePart({
                           direction: e.target.value as PayoutPart["direction"],
@@ -613,11 +660,28 @@ export function CompositePlanEditor({
                       </select>
                     </label>
                   )}
-                  <Field
-                    label="Maximum per payment ($)"
-                    value={part.cap ?? 0}
-                    onChange={(cap) => updatePart({ cap })}
-                  />
+                  {part.cap !== null && (
+                    <Field
+                      label="Maximum per payment ($)"
+                      value={part.cap ?? 0}
+                      onChange={(cap) => updatePart({ cap })}
+                    />
+                  )}
+                  {part.method !== "tiers" && (
+                    <label className="required-rule">
+                      <input
+                        type="checkbox"
+                        checked={!!part.allowUncapped && part.cap === null}
+                        onChange={(e) =>
+                          updatePart({
+                            allowUncapped: e.target.checked,
+                            cap: e.target.checked ? null : 0,
+                          })
+                        }
+                      />
+                      No stated dollar cap (commission / pool-based)
+                    </label>
+                  )}
                   {part.method === "tiers" && (
                     <label>
                       <input
@@ -766,6 +830,7 @@ export function CompositePlanEditor({
                   <label className="required-rule">
                     <input
                       type="checkbox"
+                      disabled={part.policy?.kind === "pool"}
                       checked={part.entries !== null}
                       onChange={(e) =>
                         updatePart({
@@ -1000,7 +1065,7 @@ export function CompositePlanEditor({
     </section>
   );
 }
-function PlanHandout({ plan: p }: { plan: Plan }) {
+function PlanHandout({ plan: p, included }: { plan: Plan; included: boolean }) {
   const c = p.composite!,
     r = compositeResult({ ...p, reportingPeriod: "Annual" }),
     count = c.recipient === "team" ? 1 : p.participants,
@@ -1064,7 +1129,9 @@ function PlanHandout({ plan: p }: { plan: Plan }) {
                 <h2>{part.name}</h2>
                 <p>{part.measure}</p>
               </div>
-              {part.method === "tiers" ? (
+              {part.policy ? (
+                <PolicyHandout part={part} />
+              ) : part.method === "tiers" ? (
                 <table>
                   <thead>
                     <tr>
@@ -1152,7 +1219,7 @@ function PlanHandout({ plan: p }: { plan: Plan }) {
                   </strong>
                   <p>
                     {part.method === "rate"
-                      ? `${part.direction === "higher" ? "Above" : "Below"} ${part.startAt} ${part.unit}: ${money(part.rate)} per qualifying unit.`
+                      ? `${part.direction === "higher" ? "Above" : "Below"} ${part.startAt} ${part.unit}: ${part.displayAsPercent ? (part.rate * 100).toLocaleString("en-CA", { maximumFractionDigits: 4 }) + "% of qualifying revenue" : "CAD " + part.rate.toLocaleString("en-CA", { maximumFractionDigits: 6 }) + " per qualifying unit"}.`
                       : `At ${part.target} ${part.unit}: ${money(part.targetPayout)} per payment. Start paying at ${part.threshold}% of goal.`}
                   </p>
                   <p>
@@ -1232,10 +1299,11 @@ function PlanHandout({ plan: p }: { plan: Plan }) {
           </strong>
         </span>
       </div>
-      {(!p.enabled || !r.gatesPassed) && (
+      {(!included || !r.gatesPassed) && (
         <p className="sheet-warning">
           This plan is currently excluded or an eligibility check is not met.
-          The current projected payout is zero.
+          This is a what-if projection; excluded plans are not counted in the
+          company total.
         </p>
       )}
       {r.errors.length > 0 && (

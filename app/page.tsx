@@ -6,6 +6,7 @@ import {
   BriefcaseBusiness,
   Building2,
   ChartNoAxesCombined,
+  Truck,
   CheckCircle2,
   ChevronRight,
   Cloud,
@@ -36,6 +37,10 @@ import {
 } from "./components/simple-setup";
 import { PlanMeasures } from "./components/plan-measures";
 import { CompositePlanEditor } from "./components/composite-plan";
+import { CompanyTotal, CompanyTotalStrip } from "./components/company-total";
+import { DriverPayEditor } from "./components/driver-pay";
+import { ComparisonLibrary } from "./components/comparison-templates";
+import { makeComparison, type ComparisonKey } from "../lib/comparison";
 import { bulkTemplate, newPart } from "../lib/composite";
 import {
   Company,
@@ -61,6 +66,8 @@ const sections = [
   "Bonus plans",
   "Results",
   "Annual leadership",
+  "Driver pay",
+  "Company total",
 ];
 export default function Home() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
@@ -69,6 +76,7 @@ export default function Home() {
     [notice, setNotice] = useState(""),
     [storageError, setStorageError] = useState(""),
     [account, setAccount] = useState(false),
+    [libraryOpen, setLibraryOpen] = useState(false),
     [user, setUser] = useState<User | null>(null),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -254,6 +262,26 @@ export default function Home() {
     setSelected(fresh.id);
     setTab("Bonus plans");
   };
+  const addComparison = (key: ComparisonKey) => {
+    if (!c) return;
+    const { plan, pool } = makeComparison(key, c);
+    updateCompany({
+      plans: [...c.plans, plan],
+      departments: c.departments.some((d) => d.name === plan.department)
+        ? c.departments
+        : [
+            ...c.departments,
+            { id: id(), name: plan.department, budget: 0, actual: 0 },
+          ],
+      incentivePools:
+        pool && !c.incentivePools?.some((v) => v.id === pool.id)
+          ? [...(c.incentivePools ?? []), pool]
+          : c.incentivePools,
+    });
+    setSelected(plan.id);
+    setLibraryOpen(false);
+    setTab("Bonus plans");
+  };
   const addCompany = () => {
     const fresh = newCompany();
     setWorkspace((w) =>
@@ -327,6 +355,8 @@ export default function Home() {
               Target,
               ChartNoAxesCombined,
               BriefcaseBusiness,
+              Truck,
+              Wallet,
             ][i];
             return (
               <button
@@ -414,7 +444,11 @@ export default function Home() {
                         ? "2. Your divisions"
                         : tab === "Annual leadership"
                           ? "Annual director & management bonuses"
-                          : "4. Check your results"}
+                          : tab === "Driver pay"
+                            ? "Driver pay"
+                            : tab === "Company total"
+                              ? "Company incentive total"
+                              : "4. Check your results"}
               </h1>
               <p>Set clear goals. Reward good work. Know what it will cost.</p>
             </div>
@@ -489,6 +523,24 @@ export default function Home() {
               </button>
             )}
           </div>
+          <CompanyTotalStrip
+            company={c}
+            onOpen={() => setTab("Company total")}
+          />
+          {tab === "Company total" && (
+            <CompanyTotal
+              company={c}
+              onChange={updateCompany}
+              onOpen={setTab}
+            />
+          )}
+          {tab === "Driver pay" && (
+            <DriverPayEditor
+              company={c}
+              onChange={updateCompany}
+              notify={notify}
+            />
+          )}
           {tab === "Annual leadership" && (
             <AnnualLeadership
               key={c.id}
@@ -633,6 +685,12 @@ export default function Home() {
                     <Plus size={14} />
                     Team plan
                   </button>
+                  <button
+                    className="button primary"
+                    onClick={() => setLibraryOpen(true)}
+                  >
+                    Comparison chart templates
+                  </button>
                   <span className="plan-kind-label">
                     TABLE & MULTI-PART PLANS
                   </span>
@@ -657,6 +715,7 @@ export default function Home() {
                   company={c}
                   plan={activePlan}
                   onChange={updatePlan}
+                  onCompanyChange={updateCompany}
                   notify={notify}
                   onNext={() => setTab("Results")}
                   onDelete={() => {
@@ -903,6 +962,12 @@ export default function Home() {
           )}
           {tab === "Results" && (
             <>
+              <div className="plain-note">
+                The company total above includes leadership and driver
+                incentives. The breakdown below shows regular bonus plans only,
+                on the company’s selected payment-period basis. Use Company
+                total for the full annual budget.
+              </div>
               <div className="setup-banner">
                 <span className="setup-icon">
                   <ChartNoAxesCombined size={22} />
@@ -1168,6 +1233,12 @@ export default function Home() {
           </footer>
         </div>
       </main>
+      {libraryOpen && (
+        <ComparisonLibrary
+          onChoose={addComparison}
+          onClose={() => setLibraryOpen(false)}
+        />
+      )}
       {notice && (
         <div className="toast" role="status">
           <CheckCircle2 size={18} />

@@ -5,4 +5,9 @@ const formatter = new Intl.NumberFormat("en-CA", {
   currency,
   maximumFractionDigits: 0,
 });
-export const formatMoney = (amount: number) => formatter.format(amount);
+export const formatMoney = (amount: number) =>
+  Number.isNaN(amount)
+    ? "Not available"
+    : !Number.isFinite(amount)
+      ? "No stated cap"
+      : formatter.format(amount);

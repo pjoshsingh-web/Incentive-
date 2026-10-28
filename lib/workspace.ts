@@ -1,3 +1,5 @@
+import { validDriver, type DriverRecord } from "./driver-pay";
+import { resolvePoolParts, validPool, type ProfitPool } from "./comparison";
 import {
   compositeResult,
   validComposite,
@@ -35,6 +37,7 @@ export type Metric = {
   sourceId?: string;
 };
 export type Plan = {
+  year?: number;
   composite?: CompositePlan;
   reportingPeriod?: "Monthly" | "Quarterly" | "Annual";
   id: string;
@@ -57,6 +60,9 @@ export type Department = {
   actual: number;
 };
 export type Company = Profile & {
+  driverPay?: DriverRecord[];
+  summaryYear?: number;
+  incentivePools?: ProfitPool[];
   leadershipPlans?: LeadershipPlan[];
   scorecard?: Scorecard;
   id: string;
@@ -389,7 +395,7 @@ export function calculatePlan(p: Plan) {
   return { errors, pool, maximum, payout, gatesPassed };
 }
 export function resolvedPlan(c: Company, p: Plan): Plan {
-  if (p.composite) return { ...p, reportingPeriod: c.period };
+  if (p.composite) return resolvePoolParts(c, p);
   const errors: string[] = [];
   const metrics = p.metrics.map((m) => {
     if (m.source === "manual") return m;
@@ -498,6 +504,27 @@ export function parseWorkspace(raw: string): Workspace {
       !unique(c.plans)
     )
       throw Error("Invalid company profile.");
+    if (
+      c.driverPay !== undefined &&
+      (!Array.isArray(c.driverPay) ||
+        !unique(c.driverPay) ||
+        !c.driverPay.every(validDriver))
+    )
+      throw Error("Invalid driver pay estimates.");
+    if (
+      c.summaryYear !== undefined &&
+      (!Number.isInteger(c.summaryYear) ||
+        c.summaryYear < 2000 ||
+        c.summaryYear > 2200)
+    )
+      throw Error("Invalid company report year.");
+    if (
+      c.incentivePools !== undefined &&
+      (!Array.isArray(c.incentivePools) ||
+        !unique(c.incentivePools) ||
+        !c.incentivePools.every(validPool))
+    )
+      throw Error("Invalid incentive pools.");
     if (c.scorecard !== undefined && !validScorecard(c.scorecard))
       throw Error("Invalid company measures.");
     if (
@@ -529,6 +556,11 @@ export function parseWorkspace(raw: string): Workspace {
         !["participants", "incentive", "cap"].every((k) => number(p[k]))
       )
         throw Error("Invalid incentive plan.");
+      if (
+        p.year !== undefined &&
+        (!Number.isInteger(p.year) || p.year < 2000 || p.year > 2200)
+      )
+        throw Error("Invalid plan year.");
       if (p.composite !== undefined && !validComposite(p.composite))
         throw Error("Invalid multi-part plan.");
       if (
@@ -583,6 +615,16 @@ export function cloneCompany(c: Company): Company {
           id: id(),
           adjustment: { ...p.adjustment, recorded: false },
         }))
+      : undefined,
+    driverPay: c.driverPay
+      ? structuredClone(c.driverPay).map((d) => ({
+          ...d,
+          id: id(),
+          included: false,
+        }))
+      : undefined,
+    incentivePools: c.incentivePools
+      ? structuredClone(c.incentivePools)
       : undefined,
     scorecard: c.scorecard ? structuredClone(c.scorecard) : undefined,
     departments: c.departments.map((d) => ({
