@@ -37,7 +37,7 @@ import {
 } from "./components/simple-setup";
 import { PlanMeasures } from "./components/plan-measures";
 import { CompositePlanEditor } from "./components/composite-plan";
-import { ModelComparison } from "./components/model-comparison";
+import { ModelComparison } from "./components/side-by-side-models";
 import { CompanyTotal, CompanyTotalStrip } from "./components/company-total";
 import { DriverPayEditor } from "./components/driver-pay";
 import { ComparisonLibrary } from "./components/comparison-templates";
@@ -528,10 +528,10 @@ export default function Home() {
               </button>
             )}
           </div>
-          <CompanyTotalStrip
+          {tab !== "Compare models" && <CompanyTotalStrip
             company={c}
             onOpen={() => setTab("Company total")}
-          />
+          />}
           {tab === "Compare models" && <ModelComparison key={c.id} company={c} onChange={updateCompany} notify={notify} />}
           {tab === "Company total" && (
             <CompanyTotal

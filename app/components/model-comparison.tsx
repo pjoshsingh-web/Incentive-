@@ -26,7 +26,7 @@ function Field({
     </label>
   );
 }
-export function ModelComparison({
+export function AdvancedModelComparison({
   company: c,
   onChange,
   notify,

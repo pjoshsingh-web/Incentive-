@@ -3853,3 +3853,46 @@ td input {
 .model-table thead { background:#f1f5f9; }
 .model-note { display:block; color:#64748b; margin-top:6px; }
 .model-comparison textarea { width:100%; min-height:85px; }
+
+.compare-toolbar { display:grid; grid-template-columns:2fr 2fr 1fr; gap:16px; margin-top:24px; }
+.compare-toolbar label,.compare-field { display:grid; gap:8px; min-width:0; font-size:13px; font-weight:600; }
+.compare-field small { font-weight:400; color:#64748b; }
+.compare-columns { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start; }
+.compare-column { min-width:0; border-top:4px solid #64748b; }
+.compare-column.proposal { border-top-color:#cf161b; }
+.compare-inputs { display:grid; gap:18px; }
+.compare-part { display:grid; gap:14px; padding:18px 0; border-top:1px solid #e2e8f0; }
+.compare-part h4 { margin:0; }
+.compare-part small { color:#64748b; }
+.compare-check { display:flex; gap:8px; align-items:center; font-size:13px; }
+.compare-check input { width:auto; }
+.compare-plan-cost { background:#f1f5f9; padding:18px; border-radius:12px; display:grid; gap:6px; margin:20px 0; }
+.compare-plan-cost strong { font-size:30px; color:#092139; }
+.compare-plan-cost small { color:#64748b; }
+.compare-live { position:sticky; top:12px; z-index:10; background:#092139; color:white; display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; padding:22px; border-radius:14px; box-shadow:0 6px 20px #09213922; }
+.compare-live>div { display:grid; gap:6px; }
+.compare-live span,.compare-live small { font-size:12px; color:#cbd5e1; }
+.compare-live strong { font-size:25px; }
+.compare-difference { border-left:1px solid #ffffff44; padding-left:18px; }
+.compare-tiers>div { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+.model-comparison>details>summary { cursor:pointer; font-weight:600; padding:8px 0; }
+.model-comparison>details[open]>.model-comparison { margin-top:24px; }
+@media(max-width:700px) {
+ .compare-toolbar { grid-template-columns:1fr; }
+ .compare-columns { gap:8px; }
+ .compare-column.panel { padding:12px; }
+ .compare-live { top:0; gap:10px; padding:14px; }
+ .compare-live strong { font-size:17px; overflow-wrap:anywhere; }
+ .compare-difference { padding-left:8px; }
+ .compare-plan-cost { padding:10px; }
+ .compare-plan-cost strong { font-size:22px; }
+ .compare-field { font-size:12px; }
+ .compare-column input,.compare-column select { width:100%; min-width:0; padding:9px; }
+ .compare-tiers>div { grid-template-columns:1fr; }
+}
+.model-comparison > .panel { padding:24px; }
+.compare-toolbar input,.compare-toolbar select,.compare-field input,.compare-field select { width:100%; min-width:0; border:1px solid #cbd5e1; border-radius:8px; padding:11px 12px; background:white; color:#172b40; font:inherit; }
+.compare-field input:focus,.compare-field select:focus,.compare-toolbar input:focus,.compare-toolbar select:focus { outline:2px solid #cf161b44; border-color:#cf161b; }
+.compare-field input:disabled { background:#f1f5f9; color:#64748b; }
+.compare-column .compare-field { margin-bottom:16px; }
+@media(max-width:700px) { .model-comparison > .panel { padding:16px; } }
