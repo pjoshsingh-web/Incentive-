@@ -510,6 +510,7 @@ export function parseWorkspace(raw: string): Workspace {
       if (!Array.isArray(c.models) || !unique(c.models)) throw Error("Invalid comparison models.");
       for (const m of c.models) {
         if (!text(m.id) || typeof m.name !== "string" || typeof m.notes !== "string" || (m.planId !== undefined && typeof m.planId !== "string") || !m.company || "models" in m.company) throw Error("Invalid comparison model.");
+        if (m.participantCounts !== undefined && (!m.participantCounts || typeof m.participantCounts !== "object" || Array.isArray(m.participantCounts) || !Object.values(m.participantCounts).every(v => typeof v === "number" && Number.isFinite(v) && v >= 0))) throw Error("Invalid comparison headcounts.");
         parseWorkspace(JSON.stringify({version: 2, activeId: m.company.id, companies: [m.company]}));
       }
     }

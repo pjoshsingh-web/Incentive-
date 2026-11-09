@@ -34,6 +34,7 @@ function NumberField({
     <label className="compare-field">
       <span>{label}</span>
       <input
+        aria-label={label}
         type="number"
         min={0}
         disabled={disabled}
@@ -48,9 +49,11 @@ function NumberField({
 function PlanInputs({
   plan: p,
   onChange,
+  hideHeadcount = false,
 }: {
   plan: Plan;
   onChange: (v: Plan) => void;
+  hideHeadcount?: boolean;
 }) {
   const patch = (part: PayoutPart, changes: Partial<PayoutPart>) =>
     onChange({
@@ -67,22 +70,26 @@ function PlanInputs({
       <p className="model-note">
         Selected for this comparison. Your live plan stays unchanged.
       </p>
-      <NumberField
-        label={
-          p.composite?.recipient === "truck"
-            ? "Number of trucks"
-            : p.composite?.recipient === "team" || p.scope === "department"
-              ? "Number of teams"
-              : "Number of people"
-        }
-        value={p.participants}
-        onChange={(participants) => onChange({ ...p, participants })}
-        help={
-          p.scope === "department"
-            ? "This plan is one shared department pool; the count does not multiply it."
-            : undefined
-        }
-      />
+      {!hideHeadcount && (
+        <>
+          <NumberField
+            label={
+              p.composite?.recipient === "truck"
+                ? "Number of trucks"
+                : p.composite?.recipient === "team" || p.scope === "department"
+                  ? "Number of teams"
+                  : "Number of people"
+            }
+            value={p.participants}
+            onChange={(participants) => onChange({ ...p, participants })}
+            help={
+              p.scope === "department"
+                ? "This plan is one shared department pool; the count does not multiply it."
+                : undefined
+            }
+          />
+        </>
+      )}
       {p.composite ? (
         p.composite.parts.map((part) => (
           <div className="compare-part" key={part.id}>
@@ -315,7 +322,27 @@ export function ModelComparison({
   const savedCurrent =
     left?.company.plans.find((p) => p.id === left.planId) ??
     left?.company.plans[0];
-  const lp = c.plans.find((p) => p.id === savedCurrent?.id) ?? savedCurrent;
+  const sourceCurrent =
+    c.plans.find((p) => p.id === savedCurrent?.id) ?? savedCurrent;
+  const lp = sourceCurrent
+    ? {
+        ...sourceCurrent,
+        participants:
+          left?.participantCounts?.[sourceCurrent.id] ??
+          sourceCurrent.participants,
+      }
+    : undefined;
+  const setCurrentCount = (participants: number | undefined) => {
+    if (!left || !lp) return;
+    const participantCounts = { ...left.participantCounts };
+    if (participants === undefined) delete participantCounts[lp.id];
+    else participantCounts[lp.id] = participants;
+    onChange({
+      models: models.map((m) =>
+        m.id === left.id ? { ...m, participantCounts } : m,
+      ),
+    });
+  };
   const rp =
     right?.company.plans.find((p) => p.id === right.planId) ??
     right?.company.plans.find((p) => p.id === lp?.id) ??
@@ -422,9 +449,10 @@ export function ModelComparison({
         </p>
         <p>
           Compare any two plans from Bonus plans—for example, Bulk–Sales Team
-          against Bulk RWT. The current total matches Company total for the
-          selected year. The proposal replaces only the selected plan; other
-          incentives and company assumptions stay the same.
+          against Bulk RWT. Both employee counts are editable for planning.
+          Current cost starts from Company total and adjusts for your current
+          headcount. The proposal replaces that plan using its own headcount.
+          Live plans stay unchanged.
         </p>
         {!left ? (
           <button className="primary" onClick={start}>
@@ -489,13 +517,20 @@ export function ModelComparison({
               aria-live="polite"
             >
               <div>
-                <span>Current company cost / year · with employer costs</span>
+                <span>
+                  Current model company cost / year · with employer costs
+                </span>
                 <strong>
                   {comparison.baseline.incomplete
                     ? "Needs review"
                     : money(comparison.baseline.loaded)}
                 </strong>
-                <small>Bonuses: {comparison.baseline.incomplete ? "Incomplete" : money(comparison.baseline.incentive)}</small>
+                <small>
+                  Bonuses:{" "}
+                  {comparison.baseline.incomplete
+                    ? "Incomplete"
+                    : money(comparison.baseline.incentive)}
+                </small>
               </div>
               <div>
                 <span>Proposed company cost / year · with employer costs</span>
@@ -504,7 +539,12 @@ export function ModelComparison({
                     ? "Needs review"
                     : money(comparison.projected.loaded)}
                 </strong>
-                <small>Bonuses: {comparison.projected.incomplete ? "Incomplete" : money(comparison.projected.incentive)}</small>
+                <small>
+                  Bonuses:{" "}
+                  {comparison.projected.incomplete
+                    ? "Incomplete"
+                    : money(comparison.projected.incentive)}
+                </small>
               </div>
               <div className="compare-difference">
                 <span>What changes?</span>
@@ -525,6 +565,18 @@ export function ModelComparison({
               aria-label="Company cost breakdown"
             >
               <h3>How the company cost is calculated</h3>
+              {comparison.headcountAdjusted && (
+                <p role="status">
+                  Live Company total is{" "}
+                  {comparison.liveBaseline.incomplete
+                    ? "incomplete"
+                    : money(comparison.liveBaseline.loaded)}{" "}
+                  with employer costs. This current model uses{" "}
+                  {lp?.participants} recipients instead of{" "}
+                  {sourceCurrent?.participants}, so its total is a planning
+                  scenario. Reset the count to match Company total again.
+                </p>
+              )}
               {comparison.baseline.incomplete ||
               comparison.projected.incomplete ? (
                 <>
@@ -544,7 +596,7 @@ export function ModelComparison({
               ) : (
                 <dl>
                   <div>
-                    <dt>Current company cost · Company total “With employer costs”</dt>
+                    <dt>Current model cost · with employer costs</dt>
                     <dd>{money(comparison.baseline.loaded)}</dd>
                   </div>
                   <div>
@@ -688,6 +740,40 @@ export function ModelComparison({
                       </small>
                     )}
                   </div>
+                  {p && (
+                    <div className="compare-current-count">
+                      <NumberField
+                        label={
+                          p.composite?.recipient === "truck"
+                            ? "Number of trucks"
+                            : p.composite?.recipient === "team" ||
+                                p.scope === "department"
+                              ? "Number of teams"
+                              : "Number of people"
+                        }
+                        value={p.participants}
+                        onChange={(participants) =>
+                          index === 0
+                            ? setCurrentCount(participants)
+                            : patch(m, {
+                                plans: m.company.plans.map((v) =>
+                                  v.id === p.id ? { ...v, participants } : v,
+                                ),
+                              })
+                        }
+                        help={
+                          p.scope === "department"
+                            ? "This is one shared department pool; the count does not multiply it."
+                            : "Change this count for this model. Your live headcount stays unchanged."
+                        }
+                      />
+                      {index === 0 && comparison?.headcountAdjusted && (
+                        <button onClick={() => setCurrentCount(undefined)}>
+                          {`Reset to live headcount (${sourceCurrent?.participants})`}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {p ? (
                     <fieldset
                       className="compare-plan-fields"
@@ -695,6 +781,7 @@ export function ModelComparison({
                     >
                       <PlanInputs
                         plan={p}
+                        hideHeadcount
                         onChange={(next) =>
                           patch(m, {
                             plans: m.company.plans.map((v) =>
@@ -740,8 +827,9 @@ export function ModelComparison({
                   </p>
                   {index === 0 && (
                     <p className="model-note">
-                      Current figures come from Bonus plans. Edit the proposal
-                      on the right to test a change.
+                      Current pay rules come from Bonus plans. Change the
+                      headcount above to test the current plan, or edit the
+                      proposed plan on the right.
                     </p>
                   )}
                   {r?.incomplete && (

@@ -245,3 +245,57 @@ test("invalid included live rules block a misleading increase or savings", async
   assert.equal(r.baseline.incomplete, true);
   assert.equal(r.difference, null);
 });
+
+test("current and proposed headcounts independently change scenario costs without editing live plans", async () => {
+  const { livePlanComparison } = await import("./models");
+  const { executiveTotal } = await import("./executive");
+  const c = newCompany();
+  c.overhead = 10;
+  const live = makeComparison("deck-kar", c).plan;
+  live.enabled = true;
+  c.plans = [live];
+  const current = { ...live, participants: 3 };
+  const proposed = structuredClone(live);
+  proposed.id = "proposal";
+  proposed.participants = 2;
+  const r = livePlanComparison(c, current, proposed, 2026);
+  assert.equal(r.liveBaseline.loaded, 6600);
+  assert.equal(r.baseline.loaded, 19800);
+  assert.equal(r.projected.loaded, 13200);
+  assert.equal(r.difference, -6600);
+  assert.equal(r.removed, 19800);
+  assert.equal(r.currentPreview.incentive, 18000);
+  assert.equal(r.headcountAdjusted, true);
+  assert.equal(r.headcountAdjustment, 13200);
+  proposed.participants = 4;
+  assert.equal(livePlanComparison(c, current, proposed, 2026).difference, 6600);
+  assert.equal(live.participants, 1);
+  assert.equal(executiveTotal(c, 2026).loaded, 6600);
+  assert.equal(
+    livePlanComparison(c, live, proposed, 2026).headcountAdjusted,
+    false,
+  );
+});
+
+test("comparison headcount overrides survive saved workspace validation", () => {
+  const c = newCompany();
+  const plan = makeComparison("deck-kar", c).plan;
+  c.plans = [plan];
+  c.models = [
+    {
+      id: "m",
+      name: "Model",
+      notes: "",
+      company: modelSnapshot(c),
+      participantCounts: { [plan.id]: 5 },
+    },
+  ];
+  const raw = () =>
+    JSON.stringify({ version: 2, activeId: c.id, companies: [c] });
+  assert.equal(
+    parseWorkspace(raw()).companies[0].models?.[0].participantCounts?.[plan.id],
+    5,
+  );
+  c.models[0].participantCounts = { [plan.id]: -1 };
+  assert.throws(() => parseWorkspace(raw()));
+});

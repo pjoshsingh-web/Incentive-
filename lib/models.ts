@@ -5,6 +5,7 @@ export type IncentiveModel = {
   name: string;
   notes: string;
   planId?: string;
+  participantCounts?: Record<string, number>;
   company: Omit<Company, "models">;
 };
 export function modelSnapshot(c: Company): Omit<Company, "models"> {
@@ -66,7 +67,20 @@ export function livePlanComparison(
   year: number,
   proposalPools: Company["incentivePools"] = [],
 ) {
-  const baseline = executiveTotal(company, year);
+  const liveBaseline = executiveTotal(company, year);
+  const liveCurrent = company.plans.find((plan) => plan.id === current.id);
+  const selectedCurrent = liveCurrent
+    ? { ...liveCurrent, participants: current.participants }
+    : current;
+  const baseline = executiveTotal(
+    {
+      ...company,
+      plans: company.plans.map((plan) =>
+        plan.id === current.id ? selectedCurrent : plan,
+      ),
+    },
+    year,
+  );
   // Existing shared pools and all business/employer assumptions stay authoritative.
   const context: Company = {
     ...company,
@@ -78,8 +92,6 @@ export function livePlanComparison(
       ) ?? []),
     ],
   };
-  const selectedCurrent =
-    company.plans.find((plan) => plan.id === current.id) ?? current;
   const candidates = new Set([current.id, proposed.id]);
   const projected = executiveTotal(
     {
@@ -126,7 +138,14 @@ export function livePlanComparison(
       year,
     );
   return {
+    liveBaseline,
     baseline,
+    headcountAdjusted:
+      !!liveCurrent && current.participants !== liveCurrent.participants,
+    headcountAdjustment:
+      Math.round(
+        (baseline.loaded - liveBaseline.loaded + Number.EPSILON) * 100,
+      ) / 100,
     projected,
     currentPreview: preview(selectedCurrent),
     proposedPreview: preview(proposed),
