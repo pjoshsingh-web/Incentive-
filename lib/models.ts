@@ -57,3 +57,89 @@ export function replacementModels(
     },
   }));
 }
+
+/** Reconcile a single replacement against the same live ledger as Company total. */
+export function livePlanComparison(
+  company: Company,
+  current: Plan,
+  proposed: Plan,
+  year: number,
+  proposalPools: Company["incentivePools"] = [],
+) {
+  const baseline = executiveTotal(company, year);
+  // Existing shared pools and all business/employer assumptions stay authoritative.
+  const context: Company = {
+    ...company,
+    incentivePools: [
+      ...(company.incentivePools ?? []),
+      ...(proposalPools?.filter(
+        (pool) =>
+          !company.incentivePools?.some((existing) => existing.id === pool.id),
+      ) ?? []),
+    ],
+  };
+  const selectedCurrent =
+    company.plans.find((plan) => plan.id === current.id) ?? current;
+  const candidates = new Set([current.id, proposed.id]);
+  const projected = executiveTotal(
+    {
+      ...context,
+      plans: [
+        ...company.plans.filter((plan) => !candidates.has(plan.id)),
+        { ...proposed, enabled: true, year },
+      ],
+    },
+    year,
+  );
+  const loaded = (amount: number) =>
+    Math.round((amount * (1 + company.overhead / 100) + Number.EPSILON) * 100) /
+    100;
+  const currentRow = baseline.rows.find(
+    (row) =>
+      row.category === "Regular incentive" &&
+      row.id === current.id &&
+      row.included,
+  );
+  const alreadyIncluded =
+    proposed.id !== current.id
+      ? baseline.rows.find(
+          (row) =>
+            row.category === "Regular incentive" &&
+            row.id === proposed.id &&
+            row.included,
+        )
+      : undefined;
+  const added = projected.rows.find(
+    (row) =>
+      row.category === "Regular incentive" &&
+      row.id === proposed.id &&
+      row.included,
+  )!;
+  const preview = (plan: Plan) =>
+    executiveTotal(
+      {
+        ...context,
+        plans: [{ ...plan, enabled: true, year }],
+        leadershipPlans: [],
+        driverPay: [],
+      },
+      year,
+    );
+  return {
+    baseline,
+    projected,
+    currentPreview: preview(selectedCurrent),
+    proposedPreview: preview(proposed),
+    removed: loaded(currentRow?.annual ?? 0),
+    removedExistingProposal: loaded(alreadyIncluded?.annual ?? 0),
+    added: loaded(added.annual),
+    currentIncluded: !!currentRow,
+    proposalAlreadyIncluded: !!alreadyIncluded,
+    difference:
+      baseline.incomplete || projected.incomplete
+        ? null
+        : Math.round(
+            (projected.loaded - baseline.loaded + Number.EPSILON) * 100,
+          ) / 100,
+  };
+}

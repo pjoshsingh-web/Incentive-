@@ -3,8 +3,7 @@ import { useState } from "react";
 import { Company, Plan, id } from "../../lib/workspace";
 import {
   IncentiveModel,
-  compareModels,
-  replacementModels,
+  livePlanComparison,
   modelSnapshot,
 } from "../../lib/models";
 import { executiveTotal } from "../../lib/executive";
@@ -313,17 +312,18 @@ export function ModelComparison({
       models.find((m) => m.id === rightId && m.id !== left?.id) ??
       models.find((m) => m.id !== left?.id),
     year = c.summaryYear ?? new Date().getFullYear();
-  const lp =
+  const savedCurrent =
     left?.company.plans.find((p) => p.id === left.planId) ??
     left?.company.plans[0];
+  const lp = c.plans.find((p) => p.id === savedCurrent?.id) ?? savedCurrent;
   const rp =
     right?.company.plans.find((p) => p.id === right.planId) ??
     right?.company.plans.find((p) => p.id === lp?.id) ??
     right?.company.plans[0];
-  const pair =
+  const comparison =
     left && right && lp && rp
-      ? compareModels(replacementModels(left, right, lp, rp), year)
-      : [];
+      ? livePlanComparison(c, lp, rp, year, right.company.incentivePools)
+      : null;
   const choosePlan = (model: IncentiveModel, value: string) => {
     const live = value.startsWith("live:")
       ? c.plans.find((p) => p.id === value.slice(5))
@@ -411,16 +411,6 @@ export function ModelComparison({
       }),
     });
   };
-  const cost = (m: IncentiveModel, p: Plan) =>
-    executiveTotal(
-      {
-        ...m.company,
-        plans: [{ ...p, enabled: true, year: undefined }],
-        leadershipPlans: [],
-        driverPay: [],
-      },
-      year,
-    );
   return (
     <div className="model-comparison">
       <section className="panel">
@@ -432,9 +422,9 @@ export function ModelComparison({
         </p>
         <p>
           Compare any two plans from Bonus plans—for example, Bulk–Sales Team
-          against Bulk RWT. Company totals count the chosen plan on each side,
-          replacing the other alternative. Other included incentives stay in the
-          total.
+          against Bulk RWT. The current total matches Company total for the
+          selected year. The proposal replaces only the selected plan; other
+          incentives and company assumptions stay the same.
         </p>
         {!left ? (
           <button className="primary" onClick={start}>
@@ -492,45 +482,125 @@ export function ModelComparison({
       </section>
       {left && right && (
         <>
-          {pair.length > 0 && (
+          {comparison && (
             <section
               className="compare-live"
               aria-label="Live company comparison"
               aria-live="polite"
             >
               <div>
-                <span>Current company cost / year</span>
+                <span>Current company cost / year · with employer costs</span>
                 <strong>
-                  {pair[0].result.incomplete
+                  {comparison.baseline.incomplete
                     ? "Needs review"
-                    : money(pair[0].result.loaded)}
+                    : money(comparison.baseline.loaded)}
                 </strong>
+                <small>Bonuses: {comparison.baseline.incomplete ? "Incomplete" : money(comparison.baseline.incentive)}</small>
               </div>
               <div>
-                <span>Proposed company cost / year</span>
+                <span>Proposed company cost / year · with employer costs</span>
                 <strong>
-                  {pair[1].result.incomplete
+                  {comparison.projected.incomplete
                     ? "Needs review"
-                    : money(pair[1].result.loaded)}
+                    : money(comparison.projected.loaded)}
                 </strong>
+                <small>Bonuses: {comparison.projected.incomplete ? "Incomplete" : money(comparison.projected.incentive)}</small>
               </div>
               <div className="compare-difference">
                 <span>What changes?</span>
                 <strong>
-                  {pair[1].difference === null
+                  {comparison.difference === null
                     ? "Complete missing rules"
-                    : pair[1].difference === 0
+                    : comparison.difference === 0
                       ? "No cost change"
-                      : `${money(Math.abs(pair[1].difference))} ${pair[1].difference > 0 ? "more" : "less"}`}
+                      : `${money(Math.abs(comparison.difference))} ${comparison.difference > 0 ? "more" : "less"}`}
                 </strong>
                 <small>Per year, including extra employer costs</small>
               </div>
             </section>
           )}
+          {comparison && (
+            <section
+              className="panel comparison-reconciliation"
+              aria-label="Company cost breakdown"
+            >
+              <h3>How the company cost is calculated</h3>
+              {comparison.baseline.incomplete ||
+              comparison.projected.incomplete ? (
+                <>
+                  <p>
+                    Complete the included plans before relying on a company
+                    total.
+                  </p>
+                  {[
+                    ...new Set([
+                      ...comparison.baseline.errors,
+                      ...comparison.projected.errors,
+                    ]),
+                  ].map((error) => (
+                    <p key={error}>{error}</p>
+                  ))}
+                </>
+              ) : (
+                <dl>
+                  <div>
+                    <dt>Current company cost · Company total “With employer costs”</dt>
+                    <dd>{money(comparison.baseline.loaded)}</dd>
+                  </div>
+                  <div>
+                    <dt>Remove current plan: {lp?.name}</dt>
+                    <dd>− {money(comparison.removed)}</dd>
+                  </div>
+                  {comparison.proposalAlreadyIncluded && (
+                    <div>
+                      <dt>
+                        Remove proposed plan already counted in Company total:{" "}
+                        {rp?.name}
+                      </dt>
+                      <dd>− {money(comparison.removedExistingProposal)}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Add proposed plan: {rp?.name}</dt>
+                    <dd>+ {money(comparison.added)}</dd>
+                  </div>
+                  <div>
+                    <dt>Proposed company cost</dt>
+                    <dd>{money(comparison.projected.loaded)}</dd>
+                  </div>
+                </dl>
+              )}
+              {!comparison.currentIncluded && (
+                <p role="status">
+                  The selected current plan is not included in Company total for{" "}
+                  {year}, so no current bonus is subtracted. Include it in
+                  Company total if it represents an existing cost.
+                </p>
+              )}
+              {comparison.proposalAlreadyIncluded && (
+                <p role="status">
+                  Both selected plans are already included in Company total. The
+                  proposal removes the current plan and replaces the
+                  already-counted proposal once. This can show a saving even
+                  when the proposed payment rises. Review inclusion in Company
+                  total if the proposal is still a draft.
+                </p>
+              )}
+              <p>
+                All figures above include {c.overhead}% employer costs. A
+                positive difference means more cost; a negative difference means
+                less cost. The proposal applies to the selected report year.
+              </p>
+            </section>
+          )}
           <div className="compare-columns">
             {[left!, right!].map((m, index) => {
               const p = index === 0 ? lp : rp,
-                r = p ? cost(m, p) : null;
+                r = comparison
+                  ? index === 0
+                    ? comparison.currentPreview
+                    : comparison.proposedPreview
+                  : null;
               return (
                 <section
                   className={
@@ -572,7 +642,11 @@ export function ModelComparison({
                         : "Proposed bonus plan"}
                     </span>
                     <select
-                      aria-label={index === 0 ? "Current bonus plan" : "Proposed bonus plan"}
+                      aria-label={
+                        index === 0
+                          ? "Current bonus plan"
+                          : "Proposed bonus plan"
+                      }
                       value={p?.id ?? ""}
                       onChange={(e) => choosePlan(m, e.target.value)}
                     >
@@ -615,16 +689,21 @@ export function ModelComparison({
                     )}
                   </div>
                   {p ? (
-                    <PlanInputs
-                      plan={p}
-                      onChange={(next) =>
-                        patch(m, {
-                          plans: m.company.plans.map((v) =>
-                            v.id === p.id ? next : v,
-                          ),
-                        })
-                      }
-                    />
+                    <fieldset
+                      className="compare-plan-fields"
+                      disabled={index === 0}
+                    >
+                      <PlanInputs
+                        plan={p}
+                        onChange={(next) =>
+                          patch(m, {
+                            plans: m.company.plans.map((v) =>
+                              v.id === p.id ? next : v,
+                            ),
+                          })
+                        }
+                      />
+                    </fieldset>
                   ) : (
                     <>
                       <p>
@@ -654,12 +733,17 @@ export function ModelComparison({
                       </button>
                     </>
                   )}
-                  <NumberField
-                    label="Extra employer costs on bonuses (%)"
-                    value={m.company.overhead}
-                    step={0.1}
-                    onChange={(overhead) => patch(m, { overhead })}
-                  />
+                  <p className="model-note">
+                    Employer costs: {c.overhead}% on bonuses, matching Company
+                    total. Company revenue, margin, period and shared pool rules
+                    also use the live company settings.
+                  </p>
+                  {index === 0 && (
+                    <p className="model-note">
+                      Current figures come from Bonus plans. Edit the proposal
+                      on the right to test a change.
+                    </p>
+                  )}
                   {r?.incomplete && (
                     <div role="status">
                       <strong>Check these rules:</strong>
@@ -680,8 +764,8 @@ export function ModelComparison({
           {lp &&
             rp &&
             (() => {
-              const a = cost(left!, lp),
-                b = cost(right!, rp);
+              const a = comparison!.currentPreview,
+                b = comparison!.proposedPreview;
               return (
                 <section className="panel compare-takeaway" aria-live="polite">
                   <h3>What this change means</h3>
@@ -693,12 +777,16 @@ export function ModelComparison({
                   ) : (
                     <p>
                       Comparing <strong>{lp.name}</strong> with{" "}
-                      <strong>{rp.name}</strong>, annual bonuses go from{" "}
-                      <strong>{money(a.incentive)}</strong> to{" "}
-                      <strong>{money(b.incentive)}</strong>. That is{" "}
+                      <strong>{rp.name}</strong>, the selected plans calculate
+                      annual bonuses of <strong>{money(a.incentive)}</strong>{" "}
+                      and <strong>{money(b.incentive)}</strong>. That is{" "}
                       <strong>
                         {money(Math.abs(b.incentive - a.incentive))}{" "}
-                        {b.incentive >= a.incentive ? "more" : "less"}
+                        {b.incentive === a.incentive
+                          ? "change"
+                          : b.incentive > a.incentive
+                            ? "more"
+                            : "less"}
                       </strong>{" "}
                       in bonuses each year, before extra employer costs.
                     </p>

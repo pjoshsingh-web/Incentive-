@@ -150,3 +150,98 @@ test("selecting the same plan on both sides includes it only once", async () => 
   assert.equal(result[0].result.incentive, 6000);
   assert.equal(result[1].difference, 0);
 });
+
+test("live comparison baseline equals Company total and higher/lower proposals change the correct direction", async () => {
+  const { livePlanComparison } = await import("./models");
+  const { executiveTotal } = await import("./executive");
+  const c = newCompany();
+  c.overhead = 10;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  const unrelated = makeComparison("projects-coordinator", c).plan;
+  unrelated.enabled = true;
+  const proposed = structuredClone(current);
+  proposed.id = "proposal";
+  proposed.enabled = false;
+  c.plans = [current, unrelated, proposed];
+  proposed.composite!.parts[0].rate = 0.0015;
+  const higher = livePlanComparison(c, current, proposed, 2026);
+  assert.equal(higher.baseline.loaded, executiveTotal(c, 2026).loaded);
+  assert.equal(higher.difference, 3300);
+  assert.equal(
+    higher.projected.loaded,
+    higher.baseline.loaded - higher.removed + higher.added,
+  );
+  proposed.composite!.parts[0].rate = 0.0005;
+  const lower = livePlanComparison(c, current, proposed, 2026);
+  assert.equal(lower.difference, -3300);
+  assert.equal(lower.baseline.loaded, higher.baseline.loaded);
+  assert.equal(current.composite!.parts[0].rate, 0.001);
+  assert.equal(proposed.enabled, false);
+});
+
+test("already-included proposal is removed once and explicitly reconciled rather than double counted", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  c.overhead = 10;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  const proposal = makeComparison("deck-kac", c).plan;
+  proposal.enabled = true;
+  c.plans = [current, proposal];
+  const draft = structuredClone(proposal);
+  draft.composite!.parts[0].rate = 0.0015;
+  const r = livePlanComparison(c, current, draft, 2026);
+  assert.equal(r.baseline.loaded, 9900);
+  assert.equal(r.projected.loaded, 9900);
+  assert.equal(r.difference, 0);
+  assert.equal(r.proposalAlreadyIncluded, true);
+  assert.equal(r.removedExistingProposal, 3300);
+  assert.equal(
+    r.projected.loaded,
+    r.baseline.loaded - r.removed - r.removedExistingProposal + r.added,
+  );
+});
+
+test("year and inclusion are preserved in baseline; excluded current plans are not subtracted", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  c.overhead = 2;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  current.year = 2025;
+  const proposal = makeComparison("deck-kac", c).plan;
+  c.plans = [current, proposal];
+  const r = livePlanComparison(c, current, proposal, 2026);
+  assert.equal(r.baseline.loaded, 0);
+  assert.equal(r.removed, 0);
+  assert.equal(r.currentIncluded, false);
+  assert.equal(r.projected.loaded, 3060);
+  assert.equal(r.difference, 3060);
+});
+
+test("same-plan comparison respects per-plan cent rounding and does not double count", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  c.overhead = 2;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  current.composite!.parts[0].actual = 123456.78;
+  c.plans = [current];
+  const r = livePlanComparison(c, current, structuredClone(current), 2026);
+  assert.equal(r.difference, 0);
+  assert.equal(r.proposalAlreadyIncluded, false);
+  assert.equal(r.baseline.loaded, r.projected.loaded);
+});
+
+test("invalid included live rules block a misleading increase or savings", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  const { plan, pool } = makeComparison("logistics-coordinator", c);
+  plan.enabled = true;
+  c.plans = [plan];
+  c.incentivePools = [pool!];
+  const r = livePlanComparison(c, plan, plan, 2026);
+  assert.equal(r.baseline.incomplete, true);
+  assert.equal(r.difference, null);
+});

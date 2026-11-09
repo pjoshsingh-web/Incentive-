@@ -3896,3 +3896,8 @@ td input {
 .compare-field input:disabled { background:#f1f5f9; color:#64748b; }
 .compare-column .compare-field { margin-bottom:16px; }
 @media(max-width:700px) { .model-comparison > .panel { padding:16px; } }
+.compare-plan-fields { border:0; padding:0; margin:0; min-width:0; }
+.compare-plan-fields:disabled input { color:#34485e; opacity:1; background:#f1f5f9; }
+.comparison-reconciliation dl { display:grid; gap:10px; margin:18px 0; }
+.comparison-reconciliation dl>div { display:flex; justify-content:space-between; gap:20px; padding:10px 0; border-bottom:1px solid #e2e8f0; }
+.comparison-reconciliation dd { margin:0; font-weight:700; white-space:nowrap; }
