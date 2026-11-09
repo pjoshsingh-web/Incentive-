@@ -1,3 +1,4 @@
+import type { PaymentSchedule } from "./payment-timing";
 import type { IncentiveModel } from "./models";
 import { validDriver, type DriverRecord } from "./driver-pay";
 import { resolvePoolParts, validPool, type ProfitPool } from "./comparison";
@@ -38,6 +39,7 @@ export type Metric = {
   sourceId?: string;
 };
 export type Plan = {
+  paymentSchedule?: PaymentSchedule;
   year?: number;
   composite?: CompositePlan;
   reportingPeriod?: "Monthly" | "Quarterly" | "Annual";
@@ -508,12 +510,45 @@ export function parseWorkspace(raw: string): Workspace {
     )
       throw Error("Invalid company profile.");
     if (c.models !== undefined) {
-      if (!Array.isArray(c.models) || !unique(c.models)) throw Error("Invalid comparison models.");
+      if (!Array.isArray(c.models) || !unique(c.models))
+        throw Error("Invalid comparison models.");
       for (const m of c.models) {
-        if (!text(m.id) || typeof m.name !== "string" || typeof m.notes !== "string" || (m.planId !== undefined && typeof m.planId !== "string") || !m.company || "models" in m.company) throw Error("Invalid comparison model.");
-        if (m.participantCounts !== undefined && (!m.participantCounts || typeof m.participantCounts !== "object" || Array.isArray(m.participantCounts) || !Object.values(m.participantCounts).every(v => typeof v === "number" && Number.isFinite(v) && v >= 0))) throw Error("Invalid comparison headcounts.");
-        if (m.baselinePlanIds !== undefined && (!m.baselinePlanIds || typeof m.baselinePlanIds !== "object" || Array.isArray(m.baselinePlanIds) || !Object.values(m.baselinePlanIds).every(v => typeof v === "string"))) throw Error("Invalid baseline plan links.");
-        parseWorkspace(JSON.stringify({version: 2, activeId: m.company.id, companies: [m.company]}));
+        if (
+          !text(m.id) ||
+          typeof m.name !== "string" ||
+          typeof m.notes !== "string" ||
+          (m.planId !== undefined && typeof m.planId !== "string") ||
+          !m.company ||
+          "models" in m.company
+        )
+          throw Error("Invalid comparison model.");
+        if (
+          m.participantCounts !== undefined &&
+          (!m.participantCounts ||
+            typeof m.participantCounts !== "object" ||
+            Array.isArray(m.participantCounts) ||
+            !Object.values(m.participantCounts).every(
+              (v) => typeof v === "number" && Number.isFinite(v) && v >= 0,
+            ))
+        )
+          throw Error("Invalid comparison headcounts.");
+        if (
+          m.baselinePlanIds !== undefined &&
+          (!m.baselinePlanIds ||
+            typeof m.baselinePlanIds !== "object" ||
+            Array.isArray(m.baselinePlanIds) ||
+            !Object.values(m.baselinePlanIds).every(
+              (v) => typeof v === "string",
+            ))
+        )
+          throw Error("Invalid baseline plan links.");
+        parseWorkspace(
+          JSON.stringify({
+            version: 2,
+            activeId: m.company.id,
+            companies: [m.company],
+          }),
+        );
       }
     }
     if (
@@ -523,7 +558,13 @@ export function parseWorkspace(raw: string): Workspace {
         !c.driverPay.every(validDriver))
     )
       throw Error("Invalid driver pay estimates.");
-    if (c.comparisonBaseYear !== undefined && (!Number.isInteger(c.comparisonBaseYear) || c.comparisonBaseYear < 2000 || c.comparisonBaseYear > 2200)) throw Error("Invalid comparison baseline year.");
+    if (
+      c.comparisonBaseYear !== undefined &&
+      (!Number.isInteger(c.comparisonBaseYear) ||
+        c.comparisonBaseYear < 2000 ||
+        c.comparisonBaseYear > 2200)
+    )
+      throw Error("Invalid comparison baseline year.");
     if (
       c.summaryYear !== undefined &&
       (!Number.isInteger(c.summaryYear) ||
@@ -569,6 +610,11 @@ export function parseWorkspace(raw: string): Workspace {
         !["participants", "incentive", "cap"].every((k) => number(p[k]))
       )
         throw Error("Invalid incentive plan.");
+      if (
+        p.paymentSchedule !== undefined &&
+        !["Monthly", "Quarterly", "Annual"].includes(p.paymentSchedule)
+      )
+        throw Error("Invalid bonus payment schedule.");
       if (
         p.year !== undefined &&
         (!Number.isInteger(p.year) || p.year < 2000 || p.year > 2200)

@@ -1,4 +1,10 @@
 import {
+  proposalBasisErrors,
+  resolveProposalPlan,
+  validProposalBasis,
+  type ProposalBasis,
+} from "./proposal-basis";
+import {
   poolFunding,
   policyErrors,
   policyPayment,
@@ -15,6 +21,7 @@ export type PartGate = {
   comparison: "at-least" | "at-most";
 };
 export type PayoutPart = {
+  proposalBasis?: ProposalBasis;
   policy?: PartPolicy;
   allowUncapped?: boolean;
   displayAsPercent?: boolean;
@@ -215,7 +222,7 @@ export function compositeErrors(p: Plan): string[] {
         label +
           ": set a payment cap for rate or goal rules so maximum exposure is known.",
       );
-    errors.push(...policyErrors(part));
+    errors.push(...policyErrors(part), ...proposalBasisErrors(part));
     if (
       part.gates.some(
         (g) =>
@@ -357,6 +364,7 @@ export function annualPartPayment(part: PayoutPart, values: number[]) {
   return amounts.reduce((s, v) => s + v, 0);
 }
 export function compositeResult(p: Plan) {
+  p = resolveProposalPlan(p);
   const config = p.composite!;
   const errors = compositeErrors(p);
   const gatesPassed = config.eligibility.every((c) => c.passed);
@@ -507,6 +515,8 @@ export function validComposite(value: unknown): value is CompositePlan {
     unique(c.parts) &&
     c.parts.every(
       (p) =>
+        (p.proposalBasis === undefined ||
+          validProposalBasis(p.proposalBasis)) &&
         (p.policy === undefined || validPolicy(p.policy)) &&
         (p.displayAsPercent === undefined ||
           typeof p.displayAsPercent === "boolean") &&

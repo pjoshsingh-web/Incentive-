@@ -1,4 +1,5 @@
 "use client";
+import { paymentTiming } from "../../lib/payment-timing";
 import { useState } from "react";
 import { Company, Plan, id } from "../../lib/workspace";
 import {
@@ -15,6 +16,7 @@ import {
 } from "../../lib/comparison";
 import { PayoutPart } from "../../lib/composite";
 import { formatMoney as money } from "../../lib/currency";
+import { ProposalDesigner } from "./proposal-designer";
 import { AdvancedModelComparison } from "./model-comparison";
 function NumberField({
   label,
@@ -92,171 +94,174 @@ function PlanInputs({
         </>
       )}
       {p.composite ? (
-        p.composite.parts.map((part) => (
-          <div className="compare-part" key={part.id}>
-            <h4>{part.name}</h4>
-            <small>
-              {part.frequency} payment · {part.periods} payments per year ·{" "}
-              {part.basis === "shared"
-                ? "one shared payment"
-                : "paid to each recipient"}
-            </small>
-            {part.policy?.kind === "pool" ? (
-              <p>
-                This uses a shared Logistics pool. Set its profit, bands and
-                role shares in advanced settings below.
-              </p>
-            ) : (
-              <>
-                <NumberField
-                  label={`${part.measure} (${part.unit})`}
-                  value={part.actual}
-                  disabled={part.entries !== null}
-                  onChange={(actual) => patch(part, { actual })}
-                  help={
-                    part.entries
-                      ? "Individual period results are active. Change those in advanced settings; this single estimate is not used."
-                      : undefined
-                  }
-                />
-                {(part.method !== "rate" || part.policy?.kind === "kar") && (
+        p.composite.parts
+          .filter((part) => !part.proposalBasis)
+          .map((part) => (
+            <div className="compare-part" key={part.id}>
+              <h4>{part.name}</h4>
+              <small>
+                {part.frequency} calculation · {part.periods} calculation
+                periods per year · {paymentTiming(p).label} ·{" "}
+                {part.basis === "shared"
+                  ? "one shared payment"
+                  : "paid to each recipient"}
+              </small>
+              {part.policy?.kind === "pool" ? (
+                <p>
+                  This uses a shared Logistics pool. Set its profit, bands and
+                  role shares in advanced settings below.
+                </p>
+              ) : (
+                <>
                   <NumberField
-                    label={`Goal (${part.unit})`}
-                    value={part.target}
-                    onChange={(target) => patch(part, { target })}
+                    label={`${part.measure} (${part.unit})`}
+                    value={part.actual}
+                    disabled={part.entries !== null}
+                    onChange={(actual) => patch(part, { actual })}
+                    help={
+                      part.entries
+                        ? "Individual period results are active. Change those in advanced settings; this single estimate is not used."
+                        : undefined
+                    }
                   />
-                )}
-                {part.policy?.kind === "kar" ? (
-                  <>
+                  {(part.method !== "rate" || part.policy?.kind === "kar") && (
                     <NumberField
-                      label="Existing business commission (%)"
-                      value={part.policy.existingRate}
-                      step={0.01}
-                      onChange={(existingRate) =>
-                        patch(part, {
-                          policy: {
-                            ...(part.policy as Extract<
-                              NonNullable<PayoutPart["policy"]>,
-                              { kind: "kar" }
-                            >),
-                            existingRate,
-                          },
-                        })
-                      }
-                    />
-                    <NumberField
-                      label="New business commission (%)"
-                      value={part.policy.newRate}
-                      step={0.01}
-                      onChange={(newRate) =>
-                        patch(part, {
-                          policy: {
-                            ...(part.policy as Extract<
-                              NonNullable<PayoutPart["policy"]>,
-                              { kind: "kar" }
-                            >),
-                            newRate,
-                          },
-                        })
-                      }
-                    />
-                    <NumberField
-                      label="Revenue from eligible new business (%)"
-                      value={part.policy.newBusinessPercent}
-                      onChange={(newBusinessPercent) =>
-                        patch(part, {
-                          policy: {
-                            ...(part.policy as Extract<
-                              NonNullable<PayoutPart["policy"]>,
-                              { kind: "kar" }
-                            >),
-                            newBusinessPercent,
-                          },
-                        })
-                      }
-                    />
-                  </>
-                ) : part.policy?.kind === "quarterly-weekly" ? (
-                  <>
-                    <NumberField
-                      label="Weekly payment per truck (CAD)"
-                      value={part.targetPayout}
-                      onChange={(targetPayout) =>
-                        patch(part, { targetPayout, cap: targetPayout })
-                      }
-                    />
-                    <NumberField
-                      label="Quarterly limit per truck (CAD)"
-                      value={part.policy.quarterCap}
-                      onChange={(quarterCap) =>
-                        patch(part, {
-                          policy: {
-                            ...(part.policy as Extract<
-                              NonNullable<PayoutPart["policy"]>,
-                              { kind: "quarterly-weekly" }
-                            >),
-                            quarterCap,
-                          },
-                        })
-                      }
-                    />
-                  </>
-                ) : part.method === "rate" ? (
-                  <NumberField
-                    label="Commission rate (%)"
-                    value={Number((part.rate * 100).toFixed(8))}
-                    step={0.01}
-                    onChange={(rate) => patch(part, { rate: rate / 100 })}
-                  />
-                ) : part.method === "goal" ? (
-                  <NumberField
-                    label="Payment at goal (CAD)"
-                    value={part.targetPayout}
-                    onChange={(targetPayout) => patch(part, { targetPayout })}
-                  />
-                ) : (
-                  <div className="compare-tiers">
-                    <p>Minimum result → payment (CAD)</p>
-                    {part.tiers.map((tier, i) => (
-                      <div key={tier.id}>
-                        <NumberField
-                          label={`Level ${i + 1} minimum`}
-                          value={tier.at}
-                          onChange={(at) =>
-                            patch(part, {
-                              tiers: part.tiers.map((v) =>
-                                v.id === tier.id ? { ...v, at } : v,
-                              ),
-                            })
-                          }
-                        />
-                        <NumberField
-                          label={`Level ${i + 1} payment`}
-                          value={tier.payout}
-                          onChange={(payout) =>
-                            patch(part, {
-                              tiers: part.tiers.map((v) =>
-                                v.id === tier.id ? { ...v, payout } : v,
-                              ),
-                            })
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {part.cap !== null &&
-                  part.policy?.kind !== "quarterly-weekly" && (
-                    <NumberField
-                      label="Limit per payment (CAD)"
-                      value={part.cap}
-                      onChange={(cap) => patch(part, { cap })}
+                      label={`Goal (${part.unit})`}
+                      value={part.target}
+                      onChange={(target) => patch(part, { target })}
                     />
                   )}
-              </>
-            )}
-          </div>
-        ))
+                  {part.policy?.kind === "kar" ? (
+                    <>
+                      <NumberField
+                        label="Existing business commission (%)"
+                        value={part.policy.existingRate}
+                        step={0.01}
+                        onChange={(existingRate) =>
+                          patch(part, {
+                            policy: {
+                              ...(part.policy as Extract<
+                                NonNullable<PayoutPart["policy"]>,
+                                { kind: "kar" }
+                              >),
+                              existingRate,
+                            },
+                          })
+                        }
+                      />
+                      <NumberField
+                        label="New business commission (%)"
+                        value={part.policy.newRate}
+                        step={0.01}
+                        onChange={(newRate) =>
+                          patch(part, {
+                            policy: {
+                              ...(part.policy as Extract<
+                                NonNullable<PayoutPart["policy"]>,
+                                { kind: "kar" }
+                              >),
+                              newRate,
+                            },
+                          })
+                        }
+                      />
+                      <NumberField
+                        label="Revenue from eligible new business (%)"
+                        value={part.policy.newBusinessPercent}
+                        onChange={(newBusinessPercent) =>
+                          patch(part, {
+                            policy: {
+                              ...(part.policy as Extract<
+                                NonNullable<PayoutPart["policy"]>,
+                                { kind: "kar" }
+                              >),
+                              newBusinessPercent,
+                            },
+                          })
+                        }
+                      />
+                    </>
+                  ) : part.policy?.kind === "quarterly-weekly" ? (
+                    <>
+                      <NumberField
+                        label="Weekly payment per truck (CAD)"
+                        value={part.targetPayout}
+                        onChange={(targetPayout) =>
+                          patch(part, { targetPayout, cap: targetPayout })
+                        }
+                      />
+                      <NumberField
+                        label="Quarterly limit per truck (CAD)"
+                        value={part.policy.quarterCap}
+                        onChange={(quarterCap) =>
+                          patch(part, {
+                            policy: {
+                              ...(part.policy as Extract<
+                                NonNullable<PayoutPart["policy"]>,
+                                { kind: "quarterly-weekly" }
+                              >),
+                              quarterCap,
+                            },
+                          })
+                        }
+                      />
+                    </>
+                  ) : part.method === "rate" ? (
+                    <NumberField
+                      label="Commission rate (%)"
+                      value={Number((part.rate * 100).toFixed(8))}
+                      step={0.01}
+                      onChange={(rate) => patch(part, { rate: rate / 100 })}
+                    />
+                  ) : part.method === "goal" ? (
+                    <NumberField
+                      label="Payment at goal (CAD)"
+                      value={part.targetPayout}
+                      onChange={(targetPayout) => patch(part, { targetPayout })}
+                    />
+                  ) : (
+                    <div className="compare-tiers">
+                      <p>Minimum result → payment (CAD)</p>
+                      {part.tiers.map((tier, i) => (
+                        <div key={tier.id}>
+                          <NumberField
+                            label={`Level ${i + 1} minimum`}
+                            value={tier.at}
+                            onChange={(at) =>
+                              patch(part, {
+                                tiers: part.tiers.map((v) =>
+                                  v.id === tier.id ? { ...v, at } : v,
+                                ),
+                              })
+                            }
+                          />
+                          <NumberField
+                            label={`Level ${i + 1} payment`}
+                            value={tier.payout}
+                            onChange={(payout) =>
+                              patch(part, {
+                                tiers: part.tiers.map((v) =>
+                                  v.id === tier.id ? { ...v, payout } : v,
+                                ),
+                              })
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {part.cap !== null &&
+                    part.policy?.kind !== "quarterly-weekly" && (
+                      <NumberField
+                        label="Limit earned per calculation period (CAD)"
+                        value={part.cap}
+                        onChange={(cap) => patch(part, { cap })}
+                      />
+                    )}
+                </>
+              )}
+            </div>
+          ))
       ) : (
         <>
           <NumberField
@@ -843,6 +848,47 @@ export function ModelComparison({
                       </small>
                     </label>
                   )}
+                  <p className="model-note">
+                    {
+                      paymentTiming(
+                        p ?? ({ paymentSchedule: undefined } as Plan),
+                      ).label
+                    }
+                    . Calculation results accrue until the payout date; payment
+                    timing does not multiply annual cost.
+                  </p>
+                  {index === 1 && p && (
+                    <label className="compare-field">
+                      <span>When is this incentive paid?</span>
+                      <select
+                        aria-label="When is this incentive paid?"
+                        value={p.paymentSchedule ?? "Quarterly"}
+                        onChange={(e) =>
+                          patch(m, {
+                            plans: m.company.plans.map((v) =>
+                              v.id === p.id
+                                ? {
+                                    ...v,
+                                    paymentSchedule: e.target
+                                      .value as Plan["paymentSchedule"],
+                                  }
+                                : v,
+                            ),
+                          })
+                        }
+                      >
+                        <option value="Quarterly">
+                          Quarterly · 4 payouts per year
+                        </option>
+                        <option value="Monthly">
+                          Monthly · 12 payouts per year
+                        </option>
+                        <option value="Annual">
+                          Annually · 1 payout per year
+                        </option>
+                      </select>
+                    </label>
+                  )}
                   <div className="compare-plan-cost">
                     <span>This plan · annual bonuses</span>
                     <strong>
@@ -858,10 +904,28 @@ export function ModelComparison({
                           (v) => v.basis === "recipient",
                         ) && p.participants > 0
                           ? `${money(r.incentive / p.participants)} per ${p.composite.recipient} per year`
-                          : "Total for this plan"}
+                          : p.composite &&
+                              p.composite.parts.every(
+                                (v) => v.basis === "shared",
+                              ) &&
+                              p.participants > 0
+                            ? `${money(r.incentive / p.participants)} estimated equal share per ${p.composite.recipient} · one shared pool`
+                            : "Total for this plan"}
                       </small>
                     )}
                   </div>
+                  {r &&
+                    p &&
+                    !r.incomplete &&
+                    paymentTiming(p).schedule === "Quarterly" && (
+                      <p className="model-note">
+                        Average quarterly payout: {money(r.incentive / 4)} total
+                        {p.participants > 0
+                          ? ` · ${money(r.incentive / 4 / p.participants)} per recipient`
+                          : ""}
+                        . Actual quarters depend on the monthly results.
+                      </p>
+                    )}
                   {p && (
                     <div className="compare-current-count">
                       <NumberField
@@ -895,6 +959,39 @@ export function ModelComparison({
                         </button>
                       )}
                     </div>
+                  )}
+                  {index === 1 && p && (
+                    <ProposalDesigner
+                      plan={p}
+                      defaultMargin={
+                        c.departments.find((d) => d.name === p.department)
+                          ?.scorecard?.marginActual ??
+                        c.scorecard?.marginActual ??
+                        c.margin
+                      }
+                      onChange={(next) =>
+                        patch(m, {
+                          plans: m.company.plans.map((v) =>
+                            v.id === p.id ? next : v,
+                          ),
+                        })
+                      }
+                      restore={() => {
+                        if (lp)
+                          patch(m, {
+                            plans: m.company.plans.map((v) =>
+                              v.id === p.id
+                                ? {
+                                    ...structuredClone(lp),
+                                    id: p.id,
+                                    name: p.name,
+                                    participants: p.participants,
+                                  }
+                                : v,
+                            ),
+                          });
+                      }}
+                    />
                   )}
                   {p ? (
                     <fieldset

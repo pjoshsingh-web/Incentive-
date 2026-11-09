@@ -1,4 +1,6 @@
 "use client";
+import { resolveProposalPlan } from "../../lib/proposal-basis";
+import { paymentTiming } from "../../lib/payment-timing";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -45,7 +47,7 @@ export function CompositePlanEditor({
   onCopy: () => void;
   notify: (s: string) => void;
 }) {
-  const config = p.composite!;
+  const config = resolveProposalPlan(p).composite!;
   const [mode, setMode] = useState<"edit" | "handout">("edit"),
     [selected, setSelected] = useState(""),
     [history, setHistory] = useState("");
@@ -81,8 +83,8 @@ export function CompositePlanEditor({
         <div>
           <h2>{p.name || "Multi-part bonus plan"}</h2>
           <p>
-            Combine payment tables and other rules in one plan. All dollar
-            values are CAD.
+            {paymentTiming(p).label}. Combine calculation rules in one plan. All
+            dollar values are CAD.
           </p>
         </div>
         <button
@@ -93,6 +95,27 @@ export function CompositePlanEditor({
           <Trash2 size={17} />
         </button>
       </div>
+      <label className="compare-field" style={{ margin: "16px 24px" }}>
+        <span>When is this incentive paid?</span>
+        <select
+          aria-label="Plan payout schedule"
+          value={p.paymentSchedule ?? "Quarterly"}
+          onChange={(e) =>
+            onChange({
+              ...p,
+              paymentSchedule: e.target.value as Plan["paymentSchedule"],
+            })
+          }
+        >
+          <option value="Quarterly">Quarterly · 4 payouts per year</option>
+          <option value="Monthly">Monthly · 12 payouts per year</option>
+          <option value="Annual">Annually · 1 payout per year</option>
+        </select>
+        <small>
+          Calculation periods determine the incentive earned. The payout
+          schedule determines when it is paid and does not change annual cost.
+        </small>
+      </label>
       <div className="composite-toolbar">
         <div className="composite-mode">
           <button
@@ -246,8 +269,8 @@ export function CompositePlanEditor({
             <div>
               <h3>Payment parts</h3>
               <p>
-                Add weekly, monthly, quarterly or annual payments. They add
-                together.
+                Calculate incentives weekly, monthly, quarterly or annually.
+                They add together.
               </p>
             </div>
             <button
@@ -310,6 +333,7 @@ export function CompositePlanEditor({
                   What is measured?
                   <input
                     value={part.measure}
+                    disabled={!!part.proposalBasis}
                     onChange={(e) => updatePart({ measure: e.target.value })}
                   />
                 </label>
@@ -322,10 +346,11 @@ export function CompositePlanEditor({
                   />
                 </label>
                 <label>
-                  How often is it paid?
+                  How often is it calculated?
                   <select
-                    aria-label="Part payment frequency"
+                    aria-label="Part calculation frequency"
                     disabled={
+                      !!part.proposalBasis ||
                       part.policy?.kind === "pool" ||
                       part.policy?.kind === "quarterly-weekly"
                     }
@@ -345,9 +370,12 @@ export function CompositePlanEditor({
                   </select>
                 </label>
                 <Field
-                  label="Number of payments in this year"
+                  label="Number of calculation periods in this year"
                   value={part.periods}
-                  disabled={part.policy?.kind === "quarterly-weekly"}
+                  disabled={
+                    !!part.proposalBasis ||
+                    part.policy?.kind === "quarterly-weekly"
+                  }
                   max={
                     part.frequency === "Weekly"
                       ? 53
@@ -399,10 +427,21 @@ export function CompositePlanEditor({
                           .actual
                       : part.actual
                   }
-                  disabled={part.policy?.kind === "pool"}
+                  disabled={
+                    part.policy?.kind === "pool" ||
+                    part.proposalBasis?.kind === "revenue" ||
+                    part.proposalBasis?.kind === "gross-profit"
+                  }
                   onChange={(actual) => updatePart({ actual })}
                 />
               </div>
+              {part.proposalBasis && (
+                <p className="composite-input-help">
+                  This component uses a custom proposal formula. Edit its
+                  revenue, gross margin and model in Compare models; the
+                  calculated result here updates from those inputs.
+                </p>
+              )}
               <p className="composite-input-help">
                 Use a {part.frequency.toLowerCase()} result for this part. For
                 “% of target,” enter 100 when the goal is met, 105 for 5% above
@@ -462,10 +501,10 @@ export function CompositePlanEditor({
                             {part.measure} ({part.unit})
                           </th>
                           <th>
-                            {part.frequency} payment per{" "}
+                            {part.frequency} incentive earned per{" "}
                             {part.basis === "shared" ? "team" : recipient} ($)
                           </th>
-                          <th>Annual example ({part.periods} payments)</th>
+                          <th>Annual example ({part.periods} calculations)</th>
                           <th />
                         </tr>
                       </thead>
@@ -662,7 +701,7 @@ export function CompositePlanEditor({
                   )}
                   {part.cap !== null && (
                     <Field
-                      label="Maximum per payment ($)"
+                      label="Maximum earned per calculation period ($)"
                       value={part.cap ?? 0}
                       onChange={(cap) => updatePart({ cap })}
                     />
@@ -843,13 +882,14 @@ export function CompositePlanEditor({
                         })
                       }
                     />
-                    Use a separate result for every payment period
+                    Use a separate result for every calculation period
                   </label>
                   {part.entries !== null && (
                     <>
                       <p>
                         Enter exactly {part.periods} results, one per line.
-                        Payments are calculated for each result and then added.
+                        Incentives are calculated for each result and then
+                        added. They are paid on the separate payout schedule.
                         Text edits apply only when you click the button below.
                       </p>
                       <textarea
@@ -985,8 +1025,8 @@ export function CompositePlanEditor({
                 <thead>
                   <tr>
                     <th>Part</th>
-                    <th>Frequency</th>
-                    <th>Payments / year</th>
+                    <th>Calculation period</th>
+                    <th>Calculations / year</th>
                     <th>Annual projection (all recipients)</th>
                     <th>Annual ceiling*</th>
                     <th>Status</th>
@@ -1139,11 +1179,11 @@ function PlanHandout({ plan: p, included }: { plan: Plan; included: boolean }) {
                         {part.measure} ({part.unit})
                       </th>
                       <th>
-                        {part.frequency} payout per{" "}
+                        {part.frequency} incentive earned per{" "}
                         {part.basis === "shared" ? "team" : recipient}
                       </th>
                       {part.frequency !== "Annual" && (
-                        <th>Annual example ({part.periods} payments)</th>
+                        <th>Annual example ({part.periods} calculations)</th>
                       )}
                     </tr>
                   </thead>
@@ -1219,13 +1259,14 @@ function PlanHandout({ plan: p, included }: { plan: Plan; included: boolean }) {
                   </strong>
                   <p>
                     {part.method === "rate"
-                      ? `${part.direction === "higher" ? "Above" : "Below"} ${part.startAt} ${part.unit}: ${part.displayAsPercent ? (part.rate * 100).toLocaleString("en-CA", { maximumFractionDigits: 4 }) + "% of qualifying revenue" : "CAD " + part.rate.toLocaleString("en-CA", { maximumFractionDigits: 6 }) + " per qualifying unit"}.`
-                      : `At ${part.target} ${part.unit}: ${money(part.targetPayout)} per payment. Start paying at ${part.threshold}% of goal.`}
+                      ? `${part.direction === "higher" ? "Above" : "Below"} ${part.startAt} ${part.unit}: ${part.displayAsPercent ? (part.rate * 100).toLocaleString("en-CA", { maximumFractionDigits: 4 }) + "% of the qualifying measure" : "CAD " + part.rate.toLocaleString("en-CA", { maximumFractionDigits: 6 }) + " per qualifying unit"}.`
+                      : `At ${part.target} ${part.unit}: ${money(part.targetPayout)} earned per calculation period. Start earning at ${part.threshold}% of goal.`}
                   </p>
                   <p>
                     Payment limit:{" "}
                     {part.cap === null ? "No separate limit" : money(part.cap)}.{" "}
-                    {part.periods} payments per year.
+                    {part.periods} calculations per year.{" "}
+                    {paymentTiming(p).label}.
                   </p>
                 </div>
               )}
@@ -1311,7 +1352,7 @@ function PlanHandout({ plan: p, included }: { plan: Plan; included: boolean }) {
       )}
       <footer>
         *The ceiling assumes requirements can pass. Annual examples repeat
-        results across all scheduled payments. Per-period values are rounded to
+        results across all calculation periods. Per-period values are rounded to
         cents before being added. Whole-plan annual cap:{" "}
         {c.annualCap === null ? "none" : money(c.annualCap)}. This handout
         describes a planning scenario; use the approved written policy for

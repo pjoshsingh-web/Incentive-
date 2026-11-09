@@ -3901,3 +3901,9 @@ td input {
 .comparison-reconciliation dl { display:grid; gap:10px; margin:18px 0; }
 .comparison-reconciliation dl>div { display:flex; justify-content:space-between; gap:20px; padding:10px 0; border-bottom:1px solid #e2e8f0; }
 .comparison-reconciliation dd { margin:0; font-weight:700; white-space:nowrap; }
+.proposal-designer { display:grid; gap:16px; margin:20px 0; padding:16px; background:#fffaf8; border:1px solid #ead7d2; border-radius:12px; min-width:0; }
+.proposal-designer h3,.proposal-designer p { margin:0; }
+.proposal-designer .compare-check input { width:auto; }
+.proposal-formula { padding:12px; background:#eff6f4; border-radius:8px; font-size:13px; }
+.proposal-tier { display:grid; gap:10px; padding-bottom:12px; border-bottom:1px solid #e2e8f0; }
+@media(max-width:700px) { .proposal-designer { padding:10px; } }
