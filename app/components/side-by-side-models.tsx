@@ -347,9 +347,18 @@ export function ModelComparison({
     right?.company.plans.find((p) => p.id === right.planId) ??
     right?.company.plans.find((p) => p.id === lp?.id) ??
     right?.company.plans[0];
+  const baselineYear =
+    c.comparisonBaseYear ?? sourceCurrent?.year ?? new Date().getFullYear();
   const comparison =
     left && right && lp && rp
-      ? livePlanComparison(c, lp, rp, year, right.company.incentivePools)
+      ? livePlanComparison(
+          c,
+          lp,
+          rp,
+          year,
+          right.company.incentivePools,
+          baselineYear,
+        )
       : null;
   const choosePlan = (model: IncentiveModel, value: string) => {
     const live = value.startsWith("live:")
@@ -450,9 +459,9 @@ export function ModelComparison({
         <p>
           Compare any two plans from Bonus plans—for example, Bulk–Sales Team
           against Bulk RWT. Both employee counts are editable for planning.
-          Current cost starts from Company total and adjusts for your current
-          headcount. The proposal replaces that plan using its own headcount.
-          Live plans stay unchanged.
+          Baseline cost starts from Company total for the baseline year and
+          adjusts for your current headcount. The proposal replaces that plan
+          using its own headcount. Live plans stay unchanged.
         </p>
         {!left ? (
           <button className="primary" onClick={start}>
@@ -492,7 +501,22 @@ export function ModelComparison({
                 </select>
               </label>
               <label>
-                Report year
+                Baseline year
+                <input
+                  aria-label="Baseline year"
+                  type="number"
+                  min={2000}
+                  max={2200}
+                  value={baselineYear}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    if (value >= 2000 && value <= 2200)
+                      onChange({ comparisonBaseYear: value });
+                  }}
+                />
+              </label>
+              <label>
+                Proposal year
                 <input
                   type="number"
                   value={year}
@@ -518,7 +542,7 @@ export function ModelComparison({
             >
               <div>
                 <span>
-                  Current model company cost / year · with employer costs
+                  Baseline company cost · {baselineYear} · with employer costs
                 </span>
                 <strong>
                   {comparison.baseline.incomplete
@@ -533,7 +557,9 @@ export function ModelComparison({
                 </small>
               </div>
               <div>
-                <span>Proposed company cost / year · with employer costs</span>
+                <span>
+                  Proposed company cost · {year} · with employer costs
+                </span>
                 <strong>
                   {comparison.projected.incomplete
                     ? "Needs review"
@@ -547,7 +573,7 @@ export function ModelComparison({
                 </small>
               </div>
               <div className="compare-difference">
-                <span>What changes?</span>
+                <span>Added cost / savings vs. baseline</span>
                 <strong>
                   {comparison.difference === null
                     ? "Complete missing rules"
@@ -564,10 +590,15 @@ export function ModelComparison({
               className="panel comparison-reconciliation"
               aria-label="Company cost breakdown"
             >
-              <h3>How the company cost is calculated</h3>
+              <h3>Baseline cost plus the proposed change</h3>
+              <p>
+                Existing incentives are already part of the baseline. Carry them
+                into {year}, then add only the increase—or subtract the
+                saving—from the selected replacement.
+              </p>
               {comparison.headcountAdjusted && (
                 <p role="status">
-                  Live Company total is{" "}
+                  Company total for {baselineYear} is{" "}
                   {comparison.liveBaseline.incomplete
                     ? "incomplete"
                     : money(comparison.liveBaseline.loaded)}{" "}
@@ -596,11 +627,11 @@ export function ModelComparison({
               ) : (
                 <dl>
                   <div>
-                    <dt>Current model cost · with employer costs</dt>
+                    <dt>Baseline company cost · {baselineYear}</dt>
                     <dd>{money(comparison.baseline.loaded)}</dd>
                   </div>
                   <div>
-                    <dt>Remove current plan: {lp?.name}</dt>
+                    <dt>Existing cost already in baseline: {lp?.name}</dt>
                     <dd>− {money(comparison.removed)}</dd>
                   </div>
                   {comparison.proposalAlreadyIncluded && (
@@ -613,11 +644,21 @@ export function ModelComparison({
                     </div>
                   )}
                   <div>
-                    <dt>Add proposed plan: {rp?.name}</dt>
+                    <dt>Replacement plan’s full cost: {rp?.name}</dt>
                     <dd>+ {money(comparison.added)}</dd>
                   </div>
                   <div>
-                    <dt>Proposed company cost</dt>
+                    <dt>Added annual cost / savings</dt>
+                    <dd>
+                      {comparison.difference === null
+                        ? "Incomplete"
+                        : comparison.difference === 0
+                          ? "No change"
+                          : `${comparison.difference > 0 ? "+" : "−"} ${money(Math.abs(comparison.difference))}`}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Proposed company cost · {year}</dt>
                     <dd>{money(comparison.projected.loaded)}</dd>
                   </div>
                 </dl>
@@ -625,8 +666,8 @@ export function ModelComparison({
               {!comparison.currentIncluded && (
                 <p role="status">
                   The selected current plan is not included in Company total for{" "}
-                  {year}, so no current bonus is subtracted. Include it in
-                  Company total if it represents an existing cost.
+                  {baselineYear}, so no current bonus is subtracted. Include it
+                  in Company total if it represents an existing cost.
                 </p>
               )}
               {comparison.proposalAlreadyIncluded && (
@@ -641,7 +682,8 @@ export function ModelComparison({
               <p>
                 All figures above include {c.overhead}% employer costs. A
                 positive difference means more cost; a negative difference means
-                less cost. The proposal applies to the selected report year.
+                less cost. The baseline awards are carried forward without
+                growth assumptions; the proposal applies to {year}.
               </p>
             </section>
           )}

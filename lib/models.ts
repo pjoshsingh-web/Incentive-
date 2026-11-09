@@ -66,8 +66,9 @@ export function livePlanComparison(
   proposed: Plan,
   year: number,
   proposalPools: Company["incentivePools"] = [],
+  baselineYear: number = year,
 ) {
-  const liveBaseline = executiveTotal(company, year);
+  const liveBaseline = executiveTotal(company, baselineYear);
   const liveCurrent = company.plans.find((plan) => plan.id === current.id);
   const selectedCurrent = liveCurrent
     ? { ...liveCurrent, participants: current.participants }
@@ -79,7 +80,7 @@ export function livePlanComparison(
         plan.id === current.id ? selectedCurrent : plan,
       ),
     },
-    year,
+    baselineYear,
   );
   // Existing shared pools and all business/employer assumptions stay authoritative.
   const context: Company = {
@@ -93,13 +94,31 @@ export function livePlanComparison(
     ],
   };
   const candidates = new Set([current.id, proposed.id]);
+  const included = (category: string, id: string) =>
+    baseline.rows.some(
+      (row) => row.category === category && row.id === id && row.included,
+    );
+  // Hold the baseline business and award costs constant across years. Only the
+  // selected replacement changes; do not drop salaries/awards at a year boundary.
   const projected = executiveTotal(
     {
       ...context,
       plans: [
-        ...company.plans.filter((plan) => !candidates.has(plan.id)),
+        ...company.plans
+          .filter(
+            (plan) =>
+              !candidates.has(plan.id) &&
+              included("Regular incentive", plan.id),
+          )
+          .map((plan) => ({ ...plan, enabled: true, year })),
         { ...proposed, enabled: true, year },
       ],
+      leadershipPlans: company.leadershipPlans
+        ?.filter((plan) => included("Leadership incentive", plan.id))
+        .map((plan) => ({ ...plan, year, includeInCompanyTotal: true })),
+      driverPay: company.driverPay
+        ?.filter((plan) => included("Driver incentive", plan.id))
+        .map((plan) => ({ ...plan, year, included: true })),
     },
     year,
   );
@@ -138,6 +157,8 @@ export function livePlanComparison(
       year,
     );
   return {
+    baselineYear,
+    proposalYear: year,
     liveBaseline,
     baseline,
     headcountAdjusted:

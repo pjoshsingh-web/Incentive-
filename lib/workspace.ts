@@ -64,6 +64,7 @@ export type Company = Profile & {
   models?: IncentiveModel[];
   driverPay?: DriverRecord[];
   summaryYear?: number;
+  comparisonBaseYear?: number;
   incentivePools?: ProfitPool[];
   leadershipPlans?: LeadershipPlan[];
   scorecard?: Scorecard;
@@ -521,6 +522,7 @@ export function parseWorkspace(raw: string): Workspace {
         !c.driverPay.every(validDriver))
     )
       throw Error("Invalid driver pay estimates.");
+    if (c.comparisonBaseYear !== undefined && (!Number.isInteger(c.comparisonBaseYear) || c.comparisonBaseYear < 2000 || c.comparisonBaseYear > 2200)) throw Error("Invalid comparison baseline year.");
     if (
       c.summaryYear !== undefined &&
       (!Number.isInteger(c.summaryYear) ||

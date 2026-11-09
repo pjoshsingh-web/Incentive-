@@ -299,3 +299,76 @@ test("comparison headcount overrides survive saved workspace validation", () => 
   c.models[0].participantCounts = { [plan.id]: -1 };
   assert.throws(() => parseWorkspace(raw()));
 });
+
+test("2027 proposal carries the existing 2026 Deck KAR 60k baseline and adds only the 15k improvement", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  c.overhead = 0;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  current.year = 2026;
+  current.participants = 10;
+  const proposed = structuredClone(current);
+  proposed.id = "proposal";
+  proposed.enabled = false;
+  proposed.year = 2027;
+  proposed.composite!.parts[0].rate = 0.00125;
+  c.plans = [current, proposed];
+  const r = livePlanComparison(c, current, proposed, 2027, [], 2026);
+  assert.equal(r.baseline.incentive, 60000);
+  assert.equal(r.projected.incentive, 75000);
+  assert.equal(r.difference, 15000);
+  assert.equal(r.removed, 60000);
+  assert.equal(r.added, 75000);
+  assert.equal(r.projected.loaded, r.baseline.loaded + r.difference!);
+  proposed.composite!.parts[0].rate = 0.001;
+  assert.equal(
+    livePlanComparison(c, current, proposed, 2027, [], 2026).difference,
+    0,
+  );
+  assert.equal(current.year, 2026);
+  assert.equal(proposed.enabled, false);
+});
+
+test("rolling the baseline forward retains unrelated annual leadership and driver incentives", async () => {
+  const { livePlanComparison } = await import("./models");
+  const { newLeadershipPlan } = await import("./leadership");
+  const { newDriverRecord } = await import("./driver-pay");
+  const c = newCompany();
+  c.overhead = 10;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  current.year = 2026;
+  current.participants = 10;
+  c.plans = [current];
+  c.leadershipPlans = [newLeadershipPlan(2026, "Leadership")];
+  const driver = newDriverRecord("canadian-deck", 2026, "Deck");
+  driver.reviewed = true;
+  driver.included = true;
+  driver.legs[0].miles = 1000;
+  driver.safetyEligible = true;
+  driver.safetyLevel = 4;
+  c.driverPay = [driver];
+  const proposed = structuredClone(current);
+  proposed.composite!.parts[0].rate = 0.00125;
+  const r = livePlanComparison(c, current, proposed, 2027, [], 2026);
+  assert.equal(r.difference, 16500);
+  assert.equal(r.projected.incentive - r.baseline.incentive, 15000);
+  assert.equal(
+    r.projected.rows.find((row) => row.category === "Leadership incentive")
+      ?.annual,
+    r.baseline.rows.find((row) => row.category === "Leadership incentive")
+      ?.annual,
+  );
+  assert.equal(
+    r.projected.rows.find((row) => row.category === "Driver incentive")?.annual,
+    40,
+  );
+  assert.equal(
+    r.projected.rows.find((row) => row.category === "Driver incentive")
+      ?.included,
+    true,
+  );
+  assert.equal(c.leadershipPlans[0].year, 2026);
+  assert.equal(driver.year, 2026);
+});
