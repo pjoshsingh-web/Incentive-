@@ -37,6 +37,7 @@ import {
 } from "./components/simple-setup";
 import { PlanMeasures } from "./components/plan-measures";
 import { CompositePlanEditor } from "./components/composite-plan";
+import { ModelComparison } from "./components/model-comparison";
 import { CompanyTotal, CompanyTotalStrip } from "./components/company-total";
 import { DriverPayEditor } from "./components/driver-pay";
 import { ComparisonLibrary } from "./components/comparison-templates";
@@ -68,6 +69,7 @@ const sections = [
   "Annual leadership",
   "Driver pay",
   "Company total",
+  "Compare models",
 ];
 export default function Home() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null),
@@ -357,6 +359,7 @@ export default function Home() {
               BriefcaseBusiness,
               Truck,
               Wallet,
+              ChartNoAxesCombined,
             ][i];
             return (
               <button
@@ -446,6 +449,8 @@ export default function Home() {
                           ? "Annual director & management bonuses"
                           : tab === "Driver pay"
                             ? "Driver pay"
+                            : tab === "Compare models"
+                              ? "Compare incentive models"
                             : tab === "Company total"
                               ? "Company incentive total"
                               : "4. Check your results"}
@@ -527,6 +532,7 @@ export default function Home() {
             company={c}
             onOpen={() => setTab("Company total")}
           />
+          {tab === "Compare models" && <ModelComparison key={c.id} company={c} onChange={updateCompany} notify={notify} />}
           {tab === "Company total" && (
             <CompanyTotal
               company={c}

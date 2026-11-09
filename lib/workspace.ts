@@ -1,3 +1,4 @@
+import type { IncentiveModel } from "./models";
 import { validDriver, type DriverRecord } from "./driver-pay";
 import { resolvePoolParts, validPool, type ProfitPool } from "./comparison";
 import {
@@ -60,6 +61,7 @@ export type Department = {
   actual: number;
 };
 export type Company = Profile & {
+  models?: IncentiveModel[];
   driverPay?: DriverRecord[];
   summaryYear?: number;
   incentivePools?: ProfitPool[];
@@ -504,6 +506,13 @@ export function parseWorkspace(raw: string): Workspace {
       !unique(c.plans)
     )
       throw Error("Invalid company profile.");
+    if (c.models !== undefined) {
+      if (!Array.isArray(c.models) || !unique(c.models)) throw Error("Invalid comparison models.");
+      for (const m of c.models) {
+        if (!text(m.id) || typeof m.name !== "string" || typeof m.notes !== "string" || !m.company || "models" in m.company) throw Error("Invalid comparison model.");
+        parseWorkspace(JSON.stringify({version: 2, activeId: m.company.id, companies: [m.company]}));
+      }
+    }
     if (
       c.driverPay !== undefined &&
       (!Array.isArray(c.driverPay) ||

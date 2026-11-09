@@ -3844,3 +3844,12 @@ td input {
     display: none !important;
   }
 }
+
+.model-comparison { display:grid; gap:24px; min-width:0; }
+.model-actions { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin:20px 0; }
+.model-table { overflow-x:auto; margin:20px 0; }
+.model-table table { width:100%; border-collapse:collapse; min-width:620px; text-align:left; }
+.model-table th,.model-table td { padding:14px; border-bottom:1px solid #e2e8f0; vertical-align:top; }
+.model-table thead { background:#f1f5f9; }
+.model-note { display:block; color:#64748b; margin-top:6px; }
+.model-comparison textarea { width:100%; min-height:85px; }

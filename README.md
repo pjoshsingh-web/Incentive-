@@ -105,3 +105,7 @@ Department operating expenses exclude incentive payments. Employer burden applie
 ## Q-Line branding
 
 The app uses Q-Line red and charcoal styling, branded account/sidebar/loading locations and Q-Line page metadata. `lib/brand.ts` is the logo configuration and `app/components/qline-brand.tsx` renders it. The original user-supplied logo is stored unchanged at `public/branding/q-line-logo.png` and appears in the sidebar, loading screen and account screen. Narrow screens show the Q portion through responsive CSS; the full logo remains on account screens. A text company name is available if the image cannot load.
+
+### Executive model comparisons
+
+Open **Compare models** to save the current company as a baseline, then copy it into proposals. Each model saves its own company and division assumptions, bonus plans, leadership plans, driver records and shared pools. These snapshots autosave with the workspace but never contribute to the live company total. Add chart templates or use the existing detailed editors to change proposal rules. For a fair rate comparison, keep business results and recipient counts unchanged; test different business results separately. The first saved model is the comparison baseline. Costs use the selected report year, each model's inclusion settings and employer cost percentage. Missing included rules block a complete cost comparison. CSV export contains annual CAD totals and explanatory notes.
