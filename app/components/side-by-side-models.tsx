@@ -1,7 +1,12 @@
 "use client";
 import { useState } from "react";
 import { Company, Plan, id } from "../../lib/workspace";
-import { IncentiveModel, compareModels, modelSnapshot } from "../../lib/models";
+import {
+  IncentiveModel,
+  compareModels,
+  replacementModels,
+  modelSnapshot,
+} from "../../lib/models";
 import { executiveTotal } from "../../lib/executive";
 import {
   ComparisonKey,
@@ -60,14 +65,9 @@ function PlanInputs({
     });
   return (
     <div className="compare-inputs">
-      <label className="compare-check">
-        <input
-          type="checkbox"
-          checked={p.enabled}
-          onChange={(e) => onChange({ ...p, enabled: e.target.checked })}
-        />{" "}
-        Count this plan in company cost
-      </label>
+      <p className="model-note">
+        Selected for this comparison. Your live plan stays unchanged.
+      </p>
       <NumberField
         label={
           p.composite?.recipient === "truck"
@@ -306,23 +306,71 @@ export function ModelComparison({
   notify: (s: string) => void;
 }) {
   const [leftId, setLeftId] = useState(""),
-    [rightId, setRightId] = useState(""),
-    [planId, setPlanId] = useState("");
+    [rightId, setRightId] = useState("");
   const models = c.models ?? [],
     left = models.find((m) => m.id === leftId) ?? models[0],
     right =
       models.find((m) => m.id === rightId && m.id !== left?.id) ??
       models.find((m) => m.id !== left?.id),
     year = c.summaryYear ?? new Date().getFullYear();
-  const pair = left && right ? compareModels([left, right], year) : [],
-    lp =
-      left?.company.plans.find((p) => p.id === planId) ??
-      left?.company.plans[0],
-    rp =
-      right?.company.plans.find((p) => p.id === lp?.id) ??
-      right?.company.plans.find(
-        (p) => p.name === lp?.name && p.role === lp?.role,
-      );
+  const lp =
+    left?.company.plans.find((p) => p.id === left.planId) ??
+    left?.company.plans[0];
+  const rp =
+    right?.company.plans.find((p) => p.id === right.planId) ??
+    right?.company.plans.find((p) => p.id === lp?.id) ??
+    right?.company.plans[0];
+  const pair =
+    left && right && lp && rp
+      ? compareModels(replacementModels(left, right, lp, rp), year)
+      : [];
+  const choosePlan = (model: IncentiveModel, value: string) => {
+    const live = value.startsWith("live:")
+      ? c.plans.find((p) => p.id === value.slice(5))
+      : undefined;
+    const planId = live?.id ?? value;
+    onChange({
+      models: models.map((m) => {
+        if (m.id !== model.id) return m;
+        if (!live) return { ...m, planId };
+        const poolIds = new Set(
+          live.composite?.parts.flatMap((p) =>
+            p.policy?.kind === "pool" ? [p.policy.poolId] : [],
+          ) ?? [],
+        );
+        return {
+          ...m,
+          planId,
+          company: {
+            ...m.company,
+            plans: [
+              ...m.company.plans.filter((p) => p.id !== live.id),
+              structuredClone(live),
+            ],
+            departments: [
+              ...m.company.departments,
+              ...structuredClone(
+                c.departments.filter(
+                  (d) =>
+                    d.name === live.department &&
+                    !m.company.departments.some(
+                      (existing) => existing.name === d.name,
+                    ),
+                ),
+              ),
+            ],
+            incentivePools: [...(m.company.incentivePools ?? [])]
+              .filter((p) => !poolIds.has(p.id))
+              .concat(
+                structuredClone(
+                  c.incentivePools?.filter((p) => poolIds.has(p.id)) ?? [],
+                ),
+              ),
+          },
+        };
+      }),
+    });
+  };
   const patch = (m: IncentiveModel, changes: Partial<Company>) =>
     onChange({
       models: models.map((v) =>
@@ -346,27 +394,22 @@ export function ModelComparison({
     const { plan, pool } = makeComparison(key, left.company);
     plan.enabled = true;
     onChange({
-      models: models.map((m) =>
-        m.id === left.id || m.id === right.id
-          ? {
-              ...m,
-              company: {
-                ...m.company,
-                plans: [...m.company.plans, structuredClone(plan)],
-                incentivePools:
-                  pool &&
-                  !m.company.incentivePools?.some((p) => p.id === pool.id)
-                    ? [
-                        ...(m.company.incentivePools ?? []),
-                        structuredClone(pool),
-                      ]
-                    : m.company.incentivePools,
-              },
-            }
-          : m,
-      ),
+      models: models.map((m) => {
+        if (m.id !== left.id && m.id !== right.id) return m;
+        return {
+          ...m,
+          planId: plan.id,
+          company: {
+            ...m.company,
+            plans: [...m.company.plans, structuredClone(plan)],
+            incentivePools:
+              pool && !m.company.incentivePools?.some((p) => p.id === pool.id)
+                ? [...(m.company.incentivePools ?? []), structuredClone(pool)]
+                : m.company.incentivePools,
+          },
+        };
+      }),
     });
-    setPlanId(plan.id);
   };
   const cost = (m: IncentiveModel, p: Plan) =>
     executiveTotal(
@@ -384,10 +427,15 @@ export function ModelComparison({
         <div className="eyebrow">TRY A CHANGE. SEE THE COST.</div>
         <h2>Current plan vs. proposed plan</h2>
         <p>
-          Choose a plan, then change the numbers on the right. Both costs update
-          immediately. All amounts are annual CAD.
+          Choose a current plan on the left and a proposed plan on the right.
+          Both costs update immediately. All amounts are annual CAD.
         </p>
-        <p>These saved models are separate from your live plans.</p>
+        <p>
+          Compare any two plans from Bonus plans—for example, Bulk–Sales Team
+          against Bulk RWT. Company totals count the chosen plan on each side,
+          replacing the other alternative. Other included incentives stay in the
+          total.
+        </p>
         {!left ? (
           <button className="primary" onClick={start}>
             Start comparing my plans
@@ -411,22 +459,6 @@ export function ModelComparison({
         ) : (
           <>
             <div className="compare-toolbar">
-              <label>
-                Plan to compare
-                <select
-                  value={lp?.id ?? ""}
-                  onChange={(e) => setPlanId(e.target.value)}
-                >
-                  <option value="" disabled>
-                    Choose a plan
-                  </option>
-                  {left.company.plans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <label>
                 Add an example to both sides
                 <select
@@ -458,41 +490,43 @@ export function ModelComparison({
           </>
         )}
       </section>
-      {!!pair.length && (
+      {left && right && (
         <>
-          <section
-            className="compare-live"
-            aria-label="Live company comparison"
-            aria-live="polite"
-          >
-            <div>
-              <span>Current company cost / year</span>
-              <strong>
-                {pair[0].result.incomplete
-                  ? "Needs review"
-                  : money(pair[0].result.loaded)}
-              </strong>
-            </div>
-            <div>
-              <span>Proposed company cost / year</span>
-              <strong>
-                {pair[1].result.incomplete
-                  ? "Needs review"
-                  : money(pair[1].result.loaded)}
-              </strong>
-            </div>
-            <div className="compare-difference">
-              <span>What changes?</span>
-              <strong>
-                {pair[1].difference === null
-                  ? "Complete missing rules"
-                  : pair[1].difference === 0
-                    ? "No cost change"
-                    : `${money(Math.abs(pair[1].difference))} ${pair[1].difference > 0 ? "more" : "less"}`}
-              </strong>
-              <small>Per year, including extra employer costs</small>
-            </div>
-          </section>
+          {pair.length > 0 && (
+            <section
+              className="compare-live"
+              aria-label="Live company comparison"
+              aria-live="polite"
+            >
+              <div>
+                <span>Current company cost / year</span>
+                <strong>
+                  {pair[0].result.incomplete
+                    ? "Needs review"
+                    : money(pair[0].result.loaded)}
+                </strong>
+              </div>
+              <div>
+                <span>Proposed company cost / year</span>
+                <strong>
+                  {pair[1].result.incomplete
+                    ? "Needs review"
+                    : money(pair[1].result.loaded)}
+                </strong>
+              </div>
+              <div className="compare-difference">
+                <span>What changes?</span>
+                <strong>
+                  {pair[1].difference === null
+                    ? "Complete missing rules"
+                    : pair[1].difference === 0
+                      ? "No cost change"
+                      : `${money(Math.abs(pair[1].difference))} ${pair[1].difference > 0 ? "more" : "less"}`}
+                </strong>
+                <small>Per year, including extra employer costs</small>
+              </div>
+            </section>
+          )}
           <div className="compare-columns">
             {[left!, right!].map((m, index) => {
               const p = index === 0 ? lp : rp,
@@ -531,6 +565,36 @@ export function ModelComparison({
                         ))}
                     </select>
                   </label>
+                  <label className="compare-field">
+                    <span>
+                      {index === 0
+                        ? "Current bonus plan"
+                        : "Proposed bonus plan"}
+                    </span>
+                    <select
+                      aria-label={index === 0 ? "Current bonus plan" : "Proposed bonus plan"}
+                      value={p?.id ?? ""}
+                      onChange={(e) => choosePlan(m, e.target.value)}
+                    >
+                      <option value="" disabled>
+                        Choose a bonus plan
+                      </option>
+                      <optgroup label="Saved in this model">
+                        {m.company.plans.map((plan) => (
+                          <option key={plan.id} value={plan.id}>
+                            {plan.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Use latest from Bonus plans">
+                        {c.plans.map((plan) => (
+                          <option key={plan.id} value={"live:" + plan.id}>
+                            {plan.name} (latest)
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </label>
                   <div className="compare-plan-cost">
                     <span>This plan · annual bonuses</span>
                     <strong>
@@ -547,7 +611,6 @@ export function ModelComparison({
                         ) && p.participants > 0
                           ? `${money(r.incentive / p.participants)} per ${p.composite.recipient} per year`
                           : "Total for this plan"}
-                        {!p.enabled ? " · Excluded from company cost" : ""}
                       </small>
                     )}
                   </div>
@@ -564,7 +627,10 @@ export function ModelComparison({
                     />
                   ) : (
                     <>
-                      <p>This proposal does not have the selected plan.</p>
+                      <p>
+                        Choose a saved bonus plan above, or add a template to
+                        begin.
+                      </p>
                       <button
                         onClick={() =>
                           lp &&
@@ -626,7 +692,8 @@ export function ModelComparison({
                     </p>
                   ) : (
                     <p>
-                      For <strong>{lp.name}</strong>, annual bonuses go from{" "}
+                      Comparing <strong>{lp.name}</strong> with{" "}
+                      <strong>{rp.name}</strong>, annual bonuses go from{" "}
                       <strong>{money(a.incentive)}</strong> to{" "}
                       <strong>{money(b.incentive)}</strong>. That is{" "}
                       <strong>

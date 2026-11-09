@@ -1,9 +1,10 @@
-import type { Company } from "./workspace";
+import type { Company, Plan } from "./workspace";
 import { executiveTotal } from "./executive";
 export type IncentiveModel = {
   id: string;
   name: string;
   notes: string;
+  planId?: string;
   company: Omit<Company, "models">;
 };
 export function modelSnapshot(c: Company): Omit<Company, "models"> {
@@ -30,5 +31,29 @@ export function compareModels(models: IncentiveModel[], year: number) {
       baseline.loaded === 0
         ? null
         : ((result.loaded - baseline.loaded) / baseline.loaded) * 100,
+  }));
+}
+
+// The two selected plans are alternatives. Keep unrelated incentives in each model.
+export function replacementModels(
+  left: IncentiveModel,
+  right: IncentiveModel,
+  current: Plan,
+  proposed: Plan,
+): IncentiveModel[] {
+  const candidates = new Set([current.id, proposed.id]);
+  return [left, right].map((model, index) => ({
+    ...model,
+    company: {
+      ...model.company,
+      plans: [
+        ...model.company.plans.filter((plan) => !candidates.has(plan.id)),
+        {
+          ...(index === 0 ? current : proposed),
+          enabled: true,
+          year: undefined,
+        },
+      ],
+    },
   }));
 }
