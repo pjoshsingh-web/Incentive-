@@ -217,7 +217,9 @@ test("year and inclusion are preserved in baseline; excluded current plans are n
   assert.equal(r.removed, 0);
   assert.equal(r.currentIncluded, false);
   assert.equal(r.projected.loaded, 3060);
-  assert.equal(r.difference, 3060);
+  assert.equal(r.difference, null);
+  assert.equal(r.projected.incomplete, true);
+  assert.ok(r.baselineLinkError);
 });
 
 test("same-plan comparison respects per-plan cent rounding and does not double count", async () => {
@@ -371,4 +373,120 @@ test("rolling the baseline forward retains unrelated annual leadership and drive
   );
   assert.equal(c.leadershipPlans[0].year, 2026);
   assert.equal(driver.year, 2026);
+});
+
+test("screenshot regression: stale Deck snapshot subtracts the existing 60k before adding proposed 90k", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  c.overhead = 2;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  current.year = 2027;
+  current.participants = 10;
+  const other = makeComparison("projects-coordinator", c).plan;
+  other.enabled = true;
+  other.composite!.parts[0].rate = 1;
+  other.composite!.parts[0].actual = 1172789.22;
+  c.plans = [current, other];
+  const stale = structuredClone(current);
+  stale.id = "old-snapshot-id";
+  stale.name = "Deck - KAR";
+  const proposal = structuredClone(stale);
+  proposal.composite!.parts[0].rate = 0.0015;
+  const r = livePlanComparison(c, stale, proposal, 2027);
+  assert.equal(r.baseline.loaded, 1257445);
+  assert.equal(r.currentPreview.incentive, 60000);
+  assert.equal(r.proposedPreview.incentive, 90000);
+  assert.equal(r.removed, 61200);
+  assert.equal(r.added, 91800);
+  assert.equal(r.bonusDifference, 30000);
+  assert.equal(r.difference, 30600);
+  assert.equal(r.projected.loaded, 1288045);
+  assert.equal(r.baselinePlanId, current.id);
+  assert.equal(r.baselineLinkError, undefined);
+});
+
+test("missing or ambiguous baseline links block totals until an included ledger plan is chosen", async () => {
+  const { livePlanComparison } = await import("./models");
+  const c = newCompany();
+  c.overhead = 0;
+  const current = makeComparison("deck-kar", c).plan;
+  current.enabled = true;
+  current.participants = 10;
+  const second = structuredClone(current);
+  second.id = "second-live-plan";
+  c.plans = [current, second];
+  const stale = structuredClone(current);
+  stale.id = "stale";
+  const proposed = structuredClone(stale);
+  proposed.composite!.parts[0].rate = 0.0015;
+  const ambiguous = livePlanComparison(c, stale, proposed, 2027);
+  assert.equal(ambiguous.difference, null);
+  assert.equal(ambiguous.bonusDifference, null);
+  assert.equal(ambiguous.projected.incomplete, true);
+  const mapped = livePlanComparison(
+    c,
+    stale,
+    proposed,
+    2027,
+    [],
+    2027,
+    current.id,
+  );
+  assert.equal(mapped.removed, 60000);
+  assert.equal(mapped.difference, 30000);
+  assert.equal(mapped.projected.incentive, 150000);
+  const missing = livePlanComparison(
+    c,
+    { ...stale, name: "Unrelated role" },
+    proposed,
+    2027,
+  );
+  assert.equal(missing.difference, null);
+});
+
+test("baseline identity repair applies to Bulk and weighted job plans, not only Deck", async () => {
+  const { livePlanComparison } = await import("./models");
+  const { bulkTemplate } = await import("./composite");
+  const { template } = await import("./workspace");
+  for (const current of [
+    bulkTemplate("Bulk"),
+    template("Dispatcher", "Operations"),
+  ]) {
+    const c = newCompany();
+    c.overhead = 0;
+    current.enabled = true;
+    c.plans = [current];
+    const stale = structuredClone(current);
+    stale.id = "stale-" + current.id;
+    const proposed = structuredClone(stale);
+    proposed.participants = current.participants * 2;
+    const r = livePlanComparison(c, stale, proposed, 2027);
+    assert.equal(r.baselineLinkError, undefined);
+    assert.equal(r.bonusDifference, r.currentPreview.incentive);
+    assert.equal(r.projected.incentive, r.baseline.incentive * 2);
+  }
+});
+
+test("baseline link choices persist and reject non-string references", () => {
+  const c = newCompany();
+  const p = makeComparison("deck-kar", c).plan;
+  c.plans = [p];
+  c.models = [
+    {
+      id: "m",
+      name: "Model",
+      notes: "",
+      baselinePlanIds: { stale: p.id },
+      company: modelSnapshot(c),
+    },
+  ];
+  const json = () =>
+    JSON.stringify({ version: 2, activeId: c.id, companies: [c] });
+  assert.equal(
+    parseWorkspace(json()).companies[0].models?.[0].baselinePlanIds?.stale,
+    p.id,
+  );
+  (c.models[0].baselinePlanIds as any).stale = 42;
+  assert.throws(() => parseWorkspace(json()));
 });

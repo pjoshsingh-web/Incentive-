@@ -4,6 +4,7 @@ import { Company, Plan, id } from "../../lib/workspace";
 import {
   IncentiveModel,
   livePlanComparison,
+  resolveBaselinePlan,
   modelSnapshot,
 } from "../../lib/models";
 import { executiveTotal } from "../../lib/executive";
@@ -322,21 +323,30 @@ export function ModelComparison({
   const savedCurrent =
     left?.company.plans.find((p) => p.id === left.planId) ??
     left?.company.plans[0];
-  const sourceCurrent =
-    c.plans.find((p) => p.id === savedCurrent?.id) ?? savedCurrent;
+  const baselineYear =
+    c.comparisonBaseYear ?? savedCurrent?.year ?? new Date().getFullYear();
+  const baselinePlanId = savedCurrent
+    ? left?.baselinePlanIds?.[savedCurrent.id]
+    : undefined;
+  const sourceCurrent = savedCurrent
+    ? (resolveBaselinePlan(c, savedCurrent, baselineYear, baselinePlanId)
+        .plan ?? savedCurrent)
+    : undefined;
   const lp = sourceCurrent
     ? {
         ...sourceCurrent,
         participants:
+          left?.participantCounts?.[savedCurrent!.id] ??
           left?.participantCounts?.[sourceCurrent.id] ??
           sourceCurrent.participants,
       }
     : undefined;
   const setCurrentCount = (participants: number | undefined) => {
-    if (!left || !lp) return;
+    if (!left || !lp || !savedCurrent) return;
     const participantCounts = { ...left.participantCounts };
-    if (participants === undefined) delete participantCounts[lp.id];
-    else participantCounts[lp.id] = participants;
+    delete participantCounts[lp.id];
+    if (participants === undefined) delete participantCounts[savedCurrent.id];
+    else participantCounts[savedCurrent.id] = participants;
     onChange({
       models: models.map((m) =>
         m.id === left.id ? { ...m, participantCounts } : m,
@@ -347,8 +357,6 @@ export function ModelComparison({
     right?.company.plans.find((p) => p.id === right.planId) ??
     right?.company.plans.find((p) => p.id === lp?.id) ??
     right?.company.plans[0];
-  const baselineYear =
-    c.comparisonBaseYear ?? sourceCurrent?.year ?? new Date().getFullYear();
   const comparison =
     left && right && lp && rp
       ? livePlanComparison(
@@ -358,6 +366,7 @@ export function ModelComparison({
           year,
           right.company.incentivePools,
           baselineYear,
+          baselinePlanId,
         )
       : null;
   const choosePlan = (model: IncentiveModel, value: string) => {
@@ -573,15 +582,23 @@ export function ModelComparison({
                 </small>
               </div>
               <div className="compare-difference">
-                <span>Added cost / savings vs. baseline</span>
+                <span>Added bonuses / savings vs. baseline</span>
                 <strong>
-                  {comparison.difference === null
+                  {comparison.bonusDifference === null
                     ? "Complete missing rules"
-                    : comparison.difference === 0
+                    : comparison.bonusDifference === 0
                       ? "No cost change"
-                      : `${money(Math.abs(comparison.difference))} ${comparison.difference > 0 ? "more" : "less"}`}
+                      : `${money(Math.abs(comparison.bonusDifference))} ${comparison.bonusDifference > 0 ? "more" : "less"}`}
                 </strong>
-                <small>Per year, including extra employer costs</small>
+                <small>
+                  {comparison.difference === null
+                    ? comparison.baselineLinkError
+                      ? "Link the baseline plan to calculate a change"
+                      : "Complete included plan rules to calculate a change"
+                    : comparison.difference === 0
+                      ? "No change with employer costs"
+                      : `${money(Math.abs(comparison.difference))} ${comparison.difference > 0 ? "more" : "less"} with employer costs (${c.overhead}%)`}
+                </small>
               </div>
             </section>
           )}
@@ -648,7 +665,34 @@ export function ModelComparison({
                     <dd>+ {money(comparison.added)}</dd>
                   </div>
                   <div>
-                    <dt>Added annual cost / savings</dt>
+                    <dt>Change in bonuses before employer costs</dt>
+                    <dd>
+                      {comparison.bonusDifference === null
+                        ? "Incomplete"
+                        : `${comparison.bonusDifference < 0 ? "−" : "+"} ${money(Math.abs(comparison.bonusDifference))}`}
+                    </dd>
+                  </div>
+                  {c.overhead > 0 &&
+                    comparison.difference !== null &&
+                    comparison.bonusDifference !== null && (
+                      <div>
+                        <dt>Change in employer costs ({c.overhead}%)</dt>
+                        <dd>
+                          {comparison.difference - comparison.bonusDifference <
+                          0
+                            ? "−"
+                            : "+"}{" "}
+                          {money(
+                            Math.abs(
+                              comparison.difference -
+                                comparison.bonusDifference,
+                            ),
+                          )}
+                        </dd>
+                      </div>
+                    )}
+                  <div>
+                    <dt>Total change with employer costs</dt>
                     <dd>
                       {comparison.difference === null
                         ? "Incomplete"
@@ -665,9 +709,10 @@ export function ModelComparison({
               )}
               {!comparison.currentIncluded && (
                 <p role="status">
-                  The selected current plan is not included in Company total for{" "}
-                  {baselineYear}, so no current bonus is subtracted. Include it
-                  in Company total if it represents an existing cost.
+                  Link the current plan to the plan already included in Company
+                  total for {baselineYear} using the selector below. Until it is
+                  linked, the proposed company cost and added cost remain
+                  incomplete.
                 </p>
               )}
               {comparison.proposalAlreadyIncluded && (
@@ -680,10 +725,11 @@ export function ModelComparison({
                 </p>
               )}
               <p>
-                All figures above include {c.overhead}% employer costs. A
-                positive difference means more cost; a negative difference means
-                less cost. The baseline awards are carried forward without
-                growth assumptions; the proposal applies to {year}.
+                Company totals include {c.overhead}% employer costs; the
+                bonus-only change is shown separately. A positive difference
+                means more cost; a negative difference means less cost. The
+                baseline awards are carried forward without growth assumptions;
+                the proposal applies to {year}.
               </p>
             </section>
           )}
@@ -741,7 +787,7 @@ export function ModelComparison({
                           ? "Current bonus plan"
                           : "Proposed bonus plan"
                       }
-                      value={p?.id ?? ""}
+                      value={(index === 0 ? savedCurrent?.id : p?.id) ?? ""}
                       onChange={(e) => choosePlan(m, e.target.value)}
                     >
                       <option value="" disabled>
@@ -763,6 +809,40 @@ export function ModelComparison({
                       </optgroup>
                     </select>
                   </label>
+                  {index === 0 && savedCurrent && comparison && (
+                    <label className="compare-field">
+                      <span>Plan already counted in Company total</span>
+                      <select
+                        aria-label="Plan already counted in Company total"
+                        value={comparison.baselinePlanId ?? ""}
+                        onChange={(e) => {
+                          const baselinePlanIds = { ...left!.baselinePlanIds };
+                          if (e.target.value)
+                            baselinePlanIds[savedCurrent.id] = e.target.value;
+                          else delete baselinePlanIds[savedCurrent.id];
+                          onChange({
+                            models: models.map((v) =>
+                              v.id === left!.id ? { ...v, baselinePlanIds } : v,
+                            ),
+                          });
+                        }}
+                      >
+                        <option value="">
+                          Choose the existing baseline plan
+                        </option>
+                        {comparison.baselineCandidates.map((plan) => (
+                          <option value={plan.id} key={plan.id}>
+                            {plan.name} · {plan.department} ·{" "}
+                            {plan.participants} recipients
+                          </option>
+                        ))}
+                      </select>
+                      <small>
+                        Links this comparison to the existing cost, even when an
+                        older saved model has a different ID.
+                      </small>
+                    </label>
+                  )}
                   <div className="compare-plan-cost">
                     <span>This plan · annual bonuses</span>
                     <strong>

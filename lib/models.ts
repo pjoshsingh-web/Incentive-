@@ -6,6 +6,7 @@ export type IncentiveModel = {
   notes: string;
   planId?: string;
   participantCounts?: Record<string, number>;
+  baselinePlanIds?: Record<string, string>;
   company: Omit<Company, "models">;
 };
 export function modelSnapshot(c: Company): Omit<Company, "models"> {
@@ -59,6 +60,43 @@ export function replacementModels(
   }));
 }
 
+/** Match saved comparisons to an included ledger row; never assume an unmatched plan is a new cost. */
+export function resolveBaselinePlan(
+  company: Company,
+  current: Plan,
+  year: number,
+  explicitId?: string,
+) {
+  const included = company.plans.filter(
+    (plan) => plan.enabled && (plan.year === undefined || plan.year === year),
+  );
+  const normalize = (value: string) =>
+    value
+      .normalize("NFKC")
+      .toLowerCase()
+      .replace(/[-_–—]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  const exact = included.find((plan) => plan.id === (explicitId ?? current.id));
+  if (exact) return { plan: exact, candidates: included, error: undefined };
+  if (!explicitId) {
+    const matches = included.filter(
+      (plan) =>
+        normalize(plan.name) === normalize(current.name) &&
+        normalize(plan.department) === normalize(current.department) &&
+        normalize(plan.role) === normalize(current.role),
+    );
+    if (matches.length === 1)
+      return { plan: matches[0], candidates: included, error: undefined };
+  }
+  return {
+    plan: undefined,
+    candidates: included,
+    error:
+      "Choose the included Company total plan that this current plan replaces. A missing or ambiguous link cannot be treated as a new bonus cost.",
+  };
+}
+
 /** Reconcile a single replacement against the same live ledger as Company total. */
 export function livePlanComparison(
   company: Company,
@@ -67,9 +105,16 @@ export function livePlanComparison(
   year: number,
   proposalPools: Company["incentivePools"] = [],
   baselineYear: number = year,
+  baselinePlanId?: string,
 ) {
   const liveBaseline = executiveTotal(company, baselineYear);
-  const liveCurrent = company.plans.find((plan) => plan.id === current.id);
+  const link = resolveBaselinePlan(
+    company,
+    current,
+    baselineYear,
+    baselinePlanId,
+  );
+  const liveCurrent = link.plan;
   const selectedCurrent = liveCurrent
     ? { ...liveCurrent, participants: current.participants }
     : current;
@@ -77,7 +122,7 @@ export function livePlanComparison(
     {
       ...company,
       plans: company.plans.map((plan) =>
-        plan.id === current.id ? selectedCurrent : plan,
+        plan.id === selectedCurrent.id ? selectedCurrent : plan,
       ),
     },
     baselineYear,
@@ -93,7 +138,7 @@ export function livePlanComparison(
       ) ?? []),
     ],
   };
-  const candidates = new Set([current.id, proposed.id]);
+  const candidates = new Set([selectedCurrent.id, proposed.id]);
   const included = (category: string, id: string) =>
     baseline.rows.some(
       (row) => row.category === category && row.id === id && row.included,
@@ -122,17 +167,21 @@ export function livePlanComparison(
     },
     year,
   );
+  if (link.error) {
+    projected.incomplete = true;
+    projected.errors.push(link.error);
+  }
   const loaded = (amount: number) =>
     Math.round((amount * (1 + company.overhead / 100) + Number.EPSILON) * 100) /
     100;
   const currentRow = baseline.rows.find(
     (row) =>
       row.category === "Regular incentive" &&
-      row.id === current.id &&
+      row.id === selectedCurrent.id &&
       row.included,
   );
   const alreadyIncluded =
-    proposed.id !== current.id
+    proposed.id !== selectedCurrent.id
       ? baseline.rows.find(
           (row) =>
             row.category === "Regular incentive" &&
@@ -157,6 +206,9 @@ export function livePlanComparison(
       year,
     );
   return {
+    baselinePlanId: liveCurrent?.id,
+    baselineLinkError: link.error,
+    baselineCandidates: link.candidates,
     baselineYear,
     proposalYear: year,
     liveBaseline,
@@ -175,6 +227,12 @@ export function livePlanComparison(
     added: loaded(added.annual),
     currentIncluded: !!currentRow,
     proposalAlreadyIncluded: !!alreadyIncluded,
+    bonusDifference:
+      baseline.incomplete || projected.incomplete
+        ? null
+        : Math.round(
+            (projected.incentive - baseline.incentive + Number.EPSILON) * 100,
+          ) / 100,
     difference:
       baseline.incomplete || projected.incomplete
         ? null
